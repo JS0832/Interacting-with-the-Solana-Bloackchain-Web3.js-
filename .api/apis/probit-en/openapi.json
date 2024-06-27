@@ -1,0 +1,1323 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Exchange HTTP API (Authorization required)",
+    "version": "unknown"
+  },
+  "servers": [
+    {
+      "url": "https://api.probit.com/api/exchange/v1"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "sec0": {
+        "type": "oauth2",
+        "flows": {}
+      }
+    }
+  },
+  "security": [
+    {
+      "sec0": []
+    }
+  ],
+  "paths": {
+    "/order_history": {
+      "get": {
+        "summary": "/order_history",
+        "description": "Get the user's order history.",
+        "operationId": "order",
+        "parameters": [
+          {
+            "name": "start_time",
+            "in": "query",
+            "description": "Returns orders submitted after given timestamp. It should be formatted in ISO 8601. (You can query `start_time` and `end_time` for up to three months)",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "default": "2018-01-01T00:00:00.000Z"
+            }
+          },
+          {
+            "name": "end_time",
+            "in": "query",
+            "description": "Returns order submitted before given timestamp. It should be formatted in ISO 8601. (You can query `start_time` and `end_time` for up to three months)",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "default": "2018-12-31T00:00:00.000Z"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Limit count of return results under given value. (1~1000)",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 200
+            }
+          },
+          {
+            "name": "market_id",
+            "in": "query",
+            "description": "market_id.",
+            "schema": {
+              "type": "string",
+              "default": "BTC-USDT"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "200",
+            "content": {
+              "application/json": {
+                "examples": {
+                  "Result": {
+                    "value": "{\n data: [\n   {\n      \"id\":\"17209090\",\n      \"user_id\":\"532bb4de-190d-4aaa-845e-e330fc18f80c\",\n      \"market_id\":\"XRP-USDT\",\n      \"side\":\"sell\",\n      \"type\":\"limit\",\n      \"time_in_force\":\"gtc\",\n      \"limit_price\":\"0.38316145\",\n      \"quantity\":\"100\",\n      \"filled_cost\":\"0\",\n      \"filled_quantity\":\"0\",\n      \"open_quantity\":\"0\",\n      \"cancelled_quantity\":\"100\",\n      \"status\":\"cancelled\",\n      \"time\":\"2018-08-10T04:10:41.929Z\"\n      \"client_order_id\": \"CLI-ORID-1\"\n    },\n    ...\n ]\n}"
+                  }
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "4XX",
+            "content": {
+              "text/plain": {
+                "examples": {
+                  "Result": {
+                    "value": "{\n  \"errorCode\": \"errorCodes\",\n  \"message\": \"message\",\n  \"details\": {\n  }\n}"
+                  }
+                },
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "errorCode": {
+                      "type": "string",
+                      "example": "errorCodes"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "message"
+                    },
+                    "details": {
+                      "type": "object",
+                      "properties": {}
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "deprecated": false
+      }
+    },
+    "/book": {
+      "get": {
+        "summary": "/book",
+        "description": "",
+        "operationId": "book",
+        "responses": {
+          "200": {
+            "description": "200",
+            "content": {
+              "application/json": {
+                "examples": {
+                  "Result": {
+                    "value": "{}"
+                  }
+                },
+                "schema": {
+                  "type": "object",
+                  "properties": {}
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "400",
+            "content": {
+              "application/json": {
+                "examples": {
+                  "Result": {
+                    "value": "{}"
+                  }
+                },
+                "schema": {
+                  "type": "object",
+                  "properties": {}
+                }
+              }
+            }
+          }
+        },
+        "deprecated": false
+      }
+    },
+    "/new_order": {
+      "post": {
+        "summary": "/new_order",
+        "description": "",
+        "operationId": "order-1",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "market_id",
+                  "type",
+                  "side",
+                  "time_in_force"
+                ],
+                "properties": {
+                  "market_id": {
+                    "type": "string",
+                    "description": "The id of market (ex: 'ETH-BTC' ..)"
+                  },
+                  "type": {
+                    "type": "string",
+                    "description": "Either \"limit\" or \"market\""
+                  },
+                  "side": {
+                    "type": "string",
+                    "description": "Either \"buy\" or \"sell\""
+                  },
+                  "time_in_force": {
+                    "type": "string",
+                    "description": "Either 'gtc',  'ioc',  'fok' or 'gtcpo'."
+                  },
+                  "limit_price": {
+                    "type": "string",
+                    "description": "The price. Only available in limit type order."
+                  },
+                  "cost": {
+                    "type": "string",
+                    "description": "When order type is market, limit_price is not avaliable. but cost does."
+                  },
+                  "quantity": {
+                    "type": "string",
+                    "description": "Quantity that you're buying or selling."
+                  },
+                  "client_order_id": {
+                    "type": "string",
+                    "description": "/^[0-9a-zA-Z-]{1,16}$/"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "200",
+            "content": {
+              "application/json": {
+                "examples": {
+                  "Result": {
+                    "value": "{\n  data: {\n    id: string,\n    user_id: string,\n    market_id: string,\n    type: OrderType,\n    side: Side,\n    quantity?: string,\n    limit_price: string,\n    time_in_force: TimeInForce,\n    filled_cost: string,\n    filled_quantity: string,\n    open_quantity?: string,\n    cancelled_quantity?: string,\n    cost?: string,\n    status: OrderStatus,\n    time: Date,\n    client_order_id: string,\n  }\n}"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "400",
+            "content": {
+              "application/json": {
+                "examples": {
+                  "Result": {
+                    "value": "{\n  \"errorCode\": \"bad_request\",  // or number or code or something\n  \"message\": \"some paramter is invalid\",\n  \"details\": {\n    \"market_id\": 'invalid',\n  }\n}\n"
+                  }
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "4XX",
+            "content": {
+              "application/json": {
+                "examples": {
+                  "Result": {
+                    "value": "{\n  \"errorCode\": \"errorCode\",  // or number or code or something\n  \"message\": \"message\",\n  \"details\": {\n    \"market_id\": 'invalid',\n  }\n}"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "deprecated": false
+      }
+    },
+    "/balance": {
+      "get": {
+        "summary": "/balance",
+        "description": "Get the user's all currency balance.",
+        "operationId": "balance",
+        "responses": {
+          "200": {
+            "description": "200",
+            "content": {
+              "application/json": {
+                "examples": {
+                  "Result": {
+                    "value": "{data: \n [\n  {\n    \"currency_id\":\"XRP\",\n    \"total\":\"100\",\n    \"available\":\"0\",\n  }\n  ...\n ]\n}"
+                  }
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "4XX",
+            "content": {
+              "application/json": {
+                "examples": {
+                  "Result": {
+                    "value": "{\n  \"errorCode\": \"errorCodes\",\n  \"message\": \"message\",\n  \"details\": {\n  }\n}"
+                  }
+                },
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "errorCode": {
+                      "type": "string",
+                      "example": "errorCodes"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "message"
+                    },
+                    "details": {
+                      "type": "object",
+                      "properties": {}
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "deprecated": false
+      }
+    },
+    "/trade_history": {
+      "get": {
+        "summary": "/trade_history",
+        "description": "Get the user's tradehistory.",
+        "operationId": "trade",
+        "parameters": [
+          {
+            "name": "start_time",
+            "in": "query",
+            "description": "Returns trades submitted after given timestamp. It should be formatted in ISO 8601.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "default": "2018-01-01T00:00:00.000Z"
+            }
+          },
+          {
+            "name": "end_time",
+            "in": "query",
+            "description": "Returns order submitted before given timestamp. It should be formatted in ISO 8601.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "default": "2018-12-31T00:00:00.000Z"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Limit count of return results under given value. (1~1000)",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 200
+            }
+          },
+          {
+            "name": "market_id",
+            "in": "query",
+            "description": "market_id.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "200",
+            "content": {
+              "application/json": {
+                "examples": {
+                  "Result": {
+                    "value": "{\n  data: [\n    {\n      \"id\":\"BTC-USDT:183566\",\n      \"order_id\":\"17209376\",\n      \"side\":\"sell\",\n      \"fee_amount\":\"0.657396569175\",\n      \"fee_currency_id\":\"USDT\",\n      \"status\":\"settled\",\n      \"price\":\"6573.96569175\",\n      \"quantity\":\"0.1\",\n      \"cost\":\"657.396569175\",\n      \"time\":\"2018-08-10T06:06:46.000Z\",\n      \"market_id\":\"BTC-USDT\"\n    }\n    ...\n\t]\n}"
+                  }
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "4XX",
+            "content": {
+              "application/json": {
+                "examples": {
+                  "Result": {
+                    "value": "{\n  \"errorCode\": \"errorCodes\",\n  \"message\": \"message\",\n  \"details\": {\n  }\n}"
+                  }
+                },
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "errorCode": {
+                      "type": "string",
+                      "example": "errorCodes"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "message"
+                    },
+                    "details": {
+                      "type": "object",
+                      "properties": {}
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "deprecated": false
+      }
+    },
+    "/cancel_order": {
+      "post": {
+        "summary": "/cancel_order",
+        "description": "",
+        "operationId": "order-2",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "market_id",
+                  "order_id"
+                ],
+                "properties": {
+                  "market_id": {
+                    "type": "string"
+                  },
+                  "order_id": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "200",
+            "content": {
+              "application/json": {
+                "examples": {
+                  "Result": {
+                    "value": "{\n    \"data\": {\n        \"id\": \"1005574\",\n        \"user_id\": \"f5d443cd-51b3-40f7-8c45-01417b43a955\",\n        \"market_id\": \"BTC-USDT\",\n        \"type\": \"limit\",\n        \"side\": \"sell\",\n        \"quantity\": \"0.01\",\n        \"limit_price\": \"17398.6\",\n        \"cost\": \"0\",\n        \"time_in_force\": \"gtc\",\n        \"filled_cost\": \"0\",\n        \"filled_quantity\": \"0\",\n        \"open_quantity\": \"0\",\n        \"cancelled_quantity\": \"0.01\",\n        \"status\": \"cancelled\",\n        \"time\": \"2022-12-16T02:25:41.546Z\"\n    }\n}"
+                  }
+                },
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "example": "1005574"
+                        },
+                        "user_id": {
+                          "type": "string",
+                          "example": "f5d443cd-51b3-40f7-8c45-01417b43a955"
+                        },
+                        "market_id": {
+                          "type": "string",
+                          "example": "BTC-USDT"
+                        },
+                        "type": {
+                          "type": "string",
+                          "example": "limit"
+                        },
+                        "side": {
+                          "type": "string",
+                          "example": "sell"
+                        },
+                        "quantity": {
+                          "type": "string",
+                          "example": "0.01"
+                        },
+                        "limit_price": {
+                          "type": "string",
+                          "example": "17398.6"
+                        },
+                        "cost": {
+                          "type": "string",
+                          "example": "0"
+                        },
+                        "time_in_force": {
+                          "type": "string",
+                          "example": "gtc"
+                        },
+                        "filled_cost": {
+                          "type": "string",
+                          "example": "0"
+                        },
+                        "filled_quantity": {
+                          "type": "string",
+                          "example": "0"
+                        },
+                        "open_quantity": {
+                          "type": "string",
+                          "example": "0"
+                        },
+                        "cancelled_quantity": {
+                          "type": "string",
+                          "example": "0.01"
+                        },
+                        "status": {
+                          "type": "string",
+                          "example": "cancelled"
+                        },
+                        "time": {
+                          "type": "string",
+                          "example": "2022-12-16T02:25:41.546Z"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "400",
+            "content": {
+              "application/json": {
+                "examples": {
+                  "Result": {
+                    "value": "{}"
+                  }
+                },
+                "schema": {
+                  "type": "object",
+                  "properties": {}
+                }
+              }
+            }
+          }
+        },
+        "deprecated": false
+      }
+    },
+    "/order": {
+      "get": {
+        "summary": "/order",
+        "description": "Get the specific order's information.",
+        "operationId": "order-3",
+        "parameters": [
+          {
+            "name": "market_id",
+            "in": "query",
+            "description": "market_id.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "order_id",
+            "in": "query",
+            "description": "Order ID returned from /new_order API. One of order_id or client_order_id must be set, along with market_id.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "client_order_id",
+            "in": "query",
+            "description": "The client_order_id you specified in /new_order api. One of order_id or client_order_id must be set, along with market_id. (deprecated soon)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "200",
+            "content": {
+              "application/json": {
+                "examples": {
+                  "Result": {
+                    "value": "{\n    \"data\": [\n        {\n            \"id\": \"38173538\",\n            \"user_id\": \"eac9ad11-...-bd8b7d0743ed\",\n            \"market_id\": \"PROB-KRW\",\n            \"type\": \"limit\",\n            \"side\": \"buy\",\n            \"quantity\": \"626.69757281\",\n            \"limit_price\": \"103\",\n            \"time_in_force\": \"gtc\",\n            \"filled_cost\": \"0\",\n            \"filled_quantity\": \"0\",\n            \"open_quantity\": \"0\",\n            \"cancelled_quantity\": \"626.69757281\",\n            \"status\": \"cancelled\",\n            \"time\": \"2022-12-16T12:52:55.659Z\",\n            \"client_order_id\": \"\"\n        }\n    ]\n}"
+                  }
+                },
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "example": "38173538"
+                          },
+                          "user_id": {
+                            "type": "string",
+                            "example": "eac9ad11-...-bd8b7d0743ed"
+                          },
+                          "market_id": {
+                            "type": "string",
+                            "example": "PROB-KRW"
+                          },
+                          "type": {
+                            "type": "string",
+                            "example": "limit"
+                          },
+                          "side": {
+                            "type": "string",
+                            "example": "buy"
+                          },
+                          "quantity": {
+                            "type": "string",
+                            "example": "626.69757281"
+                          },
+                          "limit_price": {
+                            "type": "string",
+                            "example": "103"
+                          },
+                          "time_in_force": {
+                            "type": "string",
+                            "example": "gtc"
+                          },
+                          "filled_cost": {
+                            "type": "string",
+                            "example": "0"
+                          },
+                          "filled_quantity": {
+                            "type": "string",
+                            "example": "0"
+                          },
+                          "open_quantity": {
+                            "type": "string",
+                            "example": "0"
+                          },
+                          "cancelled_quantity": {
+                            "type": "string",
+                            "example": "626.69757281"
+                          },
+                          "status": {
+                            "type": "string",
+                            "example": "cancelled"
+                          },
+                          "time": {
+                            "type": "string",
+                            "example": "2022-12-16T12:52:55.659Z"
+                          },
+                          "client_order_id": {
+                            "type": "string",
+                            "example": ""
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "4XX",
+            "content": {
+              "application/json": {
+                "examples": {
+                  "Result": {
+                    "value": "{\n  \"errorCode\": \"errorCodes\",\n  \"message\": \"message\",\n  \"details\": {\n  }\n}"
+                  }
+                },
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "errorCode": {
+                      "type": "string",
+                      "example": "errorCodes"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "message"
+                    },
+                    "details": {
+                      "type": "object",
+                      "properties": {}
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "deprecated": false
+      }
+    },
+    "/open_order": {
+      "get": {
+        "summary": "/open_order",
+        "description": "",
+        "operationId": "open_order-1",
+        "parameters": [
+          {
+            "name": "market_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "200",
+            "content": {
+              "application/json": {
+                "examples": {
+                  "Result": {
+                    "value": "{\n  \"data\": [\n    {\n      \"id\": \"1005574\",\n      \"user_id\": \"f5d443cd-51b3-40f7-8c45-01417b43a955\",\n      \"market_id\": \"BTC-USDT\",\n      \"type\": \"limit\",\n      \"side\": \"sell\",\n      \"quantity\": \"0.01\",\n      \"limit_price\": \"17398.6\",\n      \"time_in_force\": \"gtc\",\n      \"filled_cost\": \"0\",\n      \"filled_quantity\": \"0\",\n      \"open_quantity\": \"0.01\",\n      \"cancelled_quantity\": \"0\",\n      \"status\": \"open\",\n      \"time\": \"2022-12-16T02:25:41.546Z\",\n      \"client_order_id\": \"\"\n    }\n  ]\n}"
+                  }
+                },
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "example": "1005574"
+                          },
+                          "user_id": {
+                            "type": "string",
+                            "example": "f5d443cd-51b3-40f7-8c45-01417b43a955"
+                          },
+                          "market_id": {
+                            "type": "string",
+                            "example": "BTC-USDT"
+                          },
+                          "type": {
+                            "type": "string",
+                            "example": "limit"
+                          },
+                          "side": {
+                            "type": "string",
+                            "example": "sell"
+                          },
+                          "quantity": {
+                            "type": "string",
+                            "example": "0.01"
+                          },
+                          "limit_price": {
+                            "type": "string",
+                            "example": "17398.6"
+                          },
+                          "time_in_force": {
+                            "type": "string",
+                            "example": "gtc"
+                          },
+                          "filled_cost": {
+                            "type": "string",
+                            "example": "0"
+                          },
+                          "filled_quantity": {
+                            "type": "string",
+                            "example": "0"
+                          },
+                          "open_quantity": {
+                            "type": "string",
+                            "example": "0.01"
+                          },
+                          "cancelled_quantity": {
+                            "type": "string",
+                            "example": "0"
+                          },
+                          "status": {
+                            "type": "string",
+                            "example": "open"
+                          },
+                          "time": {
+                            "type": "string",
+                            "example": "2022-12-16T02:25:41.546Z"
+                          },
+                          "client_order_id": {
+                            "type": "string",
+                            "example": ""
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "400",
+            "content": {
+              "application/json": {
+                "examples": {
+                  "Result": {
+                    "value": "{}"
+                  }
+                },
+                "schema": {
+                  "type": "object",
+                  "properties": {}
+                }
+              }
+            }
+          }
+        },
+        "deprecated": false
+      }
+    },
+    "/withdrawal": {
+      "post": {
+        "summary": "/withdrawal",
+        "description": "",
+        "operationId": "withdrawal",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "currency_id",
+                  "address",
+                  "destination_tag",
+                  "amount"
+                ],
+                "properties": {
+                  "currency_id": {
+                    "type": "string",
+                    "description": "Id of currency"
+                  },
+                  "platform_id": {
+                    "type": "string",
+                    "description": "OPTIONAL. platform id(blockchain network type) of currencies. [ETH, BTC, XRP ..] If omitted it will use the default platform for the currency."
+                  },
+                  "address": {
+                    "type": "string",
+                    "description": "The address to which you want to withdraw"
+                  },
+                  "destination_tag": {
+                    "type": "string",
+                    "description": "A secondary address that goes into the network, like a destination tag on a ripple. Passing an empty string(\"\") will omit the destination tag. This field must be set and it cannot be null. Use an empty string instead of nulls."
+                  },
+                  "amount": {
+                    "type": "string",
+                    "description": "How much you will send"
+                  },
+                  "fee_currency_id": {
+                    "type": "string",
+                    "description": "OPTIONAL. Specifies which currency to pay the withdrawal fees. Only applicable for currencies that accepts multiple withdrawal fee options. If you omit this field it'll use the default fee policy which is defined differently for each currency."
+                  },
+                  "include_fee": {
+                    "type": "boolean",
+                    "description": "OPTIONAL. Whether the `amount` field includes fees. Makes sense only when fee_currency_id is equal to currency_id."
+                  }
+                }
+              },
+              "examples": {
+                "Request Example": {
+                  "value": {
+                    "currency_id": "XRP",
+                    "platform_id": "XRP",
+                    "fee_currency_id": "XRP",
+                    "address": "rUxzXUsfkCrb5UbspAHthS2NQxsAy7Em8H",
+                    "destination_tag": "",
+                    "amount": "10.01",
+                    "tfa_session_id": "94c172d9-1f31-4e41-8788-1a9df72f0edd"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "200",
+            "content": {
+              "application/json": {
+                "examples": {
+                  "Result": {
+                    "value": "{\n  \"data\": {\n    \"id\": \"7a43b394-3314-4955-9259-ac35fb621220\",\n    \"type\": \"withdrawal\",\n    \"currency_id\": \"XRP\",\n    \"platform_id\": \"XRP\",\n    \"status\": \"requested\",\n    \"hash\": null,\n    \"confirmations\": 0,\n    \"amount\": \"10\",\n    \"address\": \"rUxzXUsfkCrb5UbspAHthS2NQxsAy7Em8H\",\n    \"fee\": \"0.01\",\n    \"destination_tag\": \"\",\n    \"time\": \"2022-12-16T03:09:53.397Z\",\n    \"fee_currency_id\": \"XRP\"\n  }\n}"
+                  }
+                },
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "example": "7a43b394-3314-4955-9259-ac35fb621220"
+                        },
+                        "type": {
+                          "type": "string",
+                          "example": "withdrawal"
+                        },
+                        "currency_id": {
+                          "type": "string",
+                          "example": "XRP"
+                        },
+                        "platform_id": {
+                          "type": "string",
+                          "example": "XRP"
+                        },
+                        "status": {
+                          "type": "string",
+                          "example": "requested"
+                        },
+                        "hash": {},
+                        "confirmations": {
+                          "type": "integer",
+                          "example": 0,
+                          "default": 0
+                        },
+                        "amount": {
+                          "type": "string",
+                          "example": "10"
+                        },
+                        "address": {
+                          "type": "string",
+                          "example": "rUxzXUsfkCrb5UbspAHthS2NQxsAy7Em8H"
+                        },
+                        "fee": {
+                          "type": "string",
+                          "example": "0.01"
+                        },
+                        "destination_tag": {
+                          "type": "string",
+                          "example": ""
+                        },
+                        "time": {
+                          "type": "string",
+                          "example": "2022-12-16T03:09:53.397Z"
+                        },
+                        "fee_currency_id": {
+                          "type": "string",
+                          "example": "XRP"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "400",
+            "content": {
+              "application/json": {
+                "examples": {
+                  "Result": {
+                    "value": "{\n  \"currency_id\": \"XRP\",\n  \"platform_id\": \"XRP\",\n  \"fee_currency_id\": \"XRP\",\n  \"address\": \"rUxzXUsfkCrb5UbspAHthS2NQxsAy7Em8H\",\n  \"destination_tag\": \"\",\n  \"amount\": \"10.01\"\n}"
+                  }
+                },
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "currency_id": {
+                      "type": "string",
+                      "example": "XRP"
+                    },
+                    "platform_id": {
+                      "type": "string",
+                      "example": "XRP"
+                    },
+                    "fee_currency_id": {
+                      "type": "string",
+                      "example": "XRP"
+                    },
+                    "address": {
+                      "type": "string",
+                      "example": "rUxzXUsfkCrb5UbspAHthS2NQxsAy7Em8H"
+                    },
+                    "destination_tag": {
+                      "type": "string",
+                      "example": ""
+                    },
+                    "amount": {
+                      "type": "string",
+                      "example": "10.01"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "deprecated": false,
+        "x-readme": {
+          "code-samples": [
+            {
+              "language": "text",
+              "code": "In order to use this API,\ni. you need to allow API withdrawal from the API Settings Page, and\nii. register the list of withdrawal addresses and destination tags on the API Settings page.\nYou can only withdraw to the registered addresses using the API.\n\nIn most cases you do not need the platform_id and fee_currency_id options - just skip the field.\nTo find out the values for platform_id and fee_currency_id, please visit the following page: https://www.probit.kr/en-us/withdrawal-fee\nor use the undocumented api: https://api.probit.com/api/exchange/v1/currency_with_platform\n\n`platform_id` field: If you omit this field, the default is the &quot;platform&quot; field from the \"/api/exchange/v1/currency\" API."
+            }
+          ],
+          "samples-languages": [
+            "text"
+          ]
+        }
+      }
+    },
+    "/deposit_address": {
+      "get": {
+        "summary": "/deposit_address",
+        "description": "Get the user's deposit address",
+        "operationId": "deposit_address",
+        "parameters": [
+          {
+            "name": "currency_id",
+            "in": "query",
+            "description": "Id of currency",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "default": "BTC"
+            }
+          },
+          {
+            "name": "platform_id",
+            "in": "query",
+            "description": "Id of platform",
+            "schema": {
+              "type": "string",
+              "default": "(BSC)"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "200",
+            "content": {
+              "application/json": {
+                "examples": {
+                  "Result": {
+                    "value": "{\n  \"data\": [\n    {\n      \"currency_id\": \"BTC\",\n      \"address\": \"8uxo8av5cqmwpi54wox604gual9oden2y60n7g0l8htc\",\n      \"destination_tag\": null\n    }\n  ]\n}"
+                  }
+                },
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "currency_id": {
+                            "type": "string",
+                            "example": "BTC"
+                          },
+                          "address": {
+                            "type": "string",
+                            "example": "8uxo8av5cqmwpi54wox604gual9oden2y60n7g0l8htc"
+                          },
+                          "destination_tag": {}
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "400",
+            "content": {
+              "application/json": {
+                "examples": {
+                  "Result": {
+                    "value": "{}"
+                  }
+                },
+                "schema": {
+                  "type": "object",
+                  "properties": {}
+                }
+              }
+            }
+          }
+        },
+        "deprecated": false
+      }
+    },
+    "/transfer/payment": {
+      "get": {
+        "summary": "/transfer/payment",
+        "description": "Get the user's deposit and withdrawal history",
+        "operationId": "transferpayment",
+        "parameters": [
+          {
+            "name": "currency_id",
+            "in": "query",
+            "description": "Id of the coin",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "description": "type of the inquiry",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "'withdrawal' \\ 'deposit'"
+              ]
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "description": "status of the withdrawal/deposit",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "'requested'",
+                "'pending'",
+                "'confirming'",
+                "'confirmed'",
+                "'applying'",
+                "'done'",
+                "'cancelling'",
+                "'cancelled'",
+                "'failed'"
+              ]
+            }
+          },
+          {
+            "name": "start_time",
+            "in": "query",
+            "description": "starting time of the transaction",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "end_time",
+            "in": "query",
+            "description": "ending time of the transaction",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "maximum number of information  returned to the user",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "200",
+            "content": {
+              "application/json": {
+                "examples": {
+                  "Result": {
+                    "value": "{\n  \"data\": [\n    {\n      \"id\": \"b63472f4-d36e-4bb1-a6e6-4c078af2eede\",\n      \"type\": \"deposit\",\n      \"status\": \"done\",\n      \"amount\": \"0.000006\",\n      \"address\": \"TMqMEntfKAV7SUkL9aaiUjpkhq9XC1QncS\",\n      \"time\": \"2022-06-15T05:02:57.000Z\",\n      \"hash\": \"29d4259aa268f950f11961cd9a810635e1132f850384f456a86fdd80a194362c\",\n      \"currency_id\": \"TRX\",\n      \"confirmations\": 0,\n      \"fee\": \"0\",\n      \"destination_tag\": null,\n      \"platform_id\": \"TRON\",\n      \"fee_currency_id\": \"TRX\",\n\t\t\t\"delayed_reason\": \"\",\n      \"payment_service_name\": null,\n      \"crypto\": null\n    },\n    {\n      \"id\": \"56a526bc-f5f2-44ca-807a-1678f1c2f4b9\",\n      \"type\": \"deposit\",\n      \"status\": \"done\",\n      \"amount\": \"0.0138\",\n      \"address\": \"0x96Fea8099F48A43762A68dE8943fB56C7aC8581f\",\n      \"time\": \"2022-07-04T05:02:57.000Z\",\n      \"hash\": \"0xfb3f207d8eb7e0ebd52f5c58a667783be896bc57adcf5534b912c7e2f393623d\",\n      \"currency_id\": null,\n      \"confirmations\": null,\n      \"fee\": null,\n      \"destination_tag\": null,\n      \"platform_id\": null,\n      \"fee_currency_id\": null,\n\t\t\t\"delayed_reason\": null,\n      \"payment_service_name\": \"simplex\",\n      \"crypto\": \"BTC\"\n    }\n\t]\n}"
+                  }
+                },
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "example": "b63472f4-d36e-4bb1-a6e6-4c078af2eede"
+                              },
+                              "type": {
+                                "type": "string",
+                                "example": "deposit"
+                              },
+                              "status": {
+                                "type": "string",
+                                "example": "done"
+                              },
+                              "amount": {
+                                "type": "string",
+                                "example": "0.000006"
+                              },
+                              "address": {
+                                "type": "string",
+                                "example": "TMqMEntfKAV7SUkL9aaiUjpkhq9XC1QncS"
+                              },
+                              "time": {
+                                "type": "string",
+                                "example": "2022-06-15T05:02:57.000Z"
+                              },
+                              "hash": {
+                                "type": "string",
+                                "example": "29d4259aa268f950f11961cd9a810635e1132f850384f456a86fdd80a194362c"
+                              },
+                              "currency_id": {
+                                "type": "string",
+                                "example": "TRX"
+                              },
+                              "confirmations": {
+                                "type": "integer",
+                                "example": 0,
+                                "default": 0
+                              },
+                              "fee": {
+                                "type": "string",
+                                "example": "0"
+                              },
+                              "destination_tag": {},
+                              "platform_id": {
+                                "type": "string",
+                                "example": "TRON"
+                              },
+                              "fee_currency_id": {
+                                "type": "string",
+                                "example": "TRX"
+                              },
+                              "delayed_reason": {
+                                "type": "string",
+                                "example": ""
+                              },
+                              "payment_service_name": {},
+                              "crypto": {}
+                            }
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "example": "b63472f4-d36e-4bb1-a6e6-4c078af2eede"
+                              },
+                              "type": {
+                                "type": "string",
+                                "example": "deposit"
+                              },
+                              "status": {
+                                "type": "string",
+                                "example": "done"
+                              },
+                              "amount": {
+                                "type": "string",
+                                "example": "0.000006"
+                              },
+                              "address": {
+                                "type": "string",
+                                "example": "TMqMEntfKAV7SUkL9aaiUjpkhq9XC1QncS"
+                              },
+                              "time": {
+                                "type": "string",
+                                "example": "2022-06-15T05:02:57.000Z"
+                              },
+                              "hash": {
+                                "type": "string",
+                                "example": "29d4259aa268f950f11961cd9a810635e1132f850384f456a86fdd80a194362c"
+                              },
+                              "currency_id": {
+                                "type": "string",
+                                "example": "TRX"
+                              },
+                              "confirmations": {
+                                "type": "integer",
+                                "example": 0,
+                                "default": 0
+                              },
+                              "fee": {
+                                "type": "string",
+                                "example": "0"
+                              },
+                              "destination_tag": {},
+                              "platform_id": {
+                                "type": "string",
+                                "example": "TRON"
+                              },
+                              "fee_currency_id": {
+                                "type": "string",
+                                "example": "TRX"
+                              },
+                              "delayed_reason": {
+                                "type": "string",
+                                "example": ""
+                              },
+                              "payment_service_name": {},
+                              "crypto": {}
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "400",
+            "content": {
+              "application/json": {
+                "examples": {
+                  "Result": {
+                    "value": "{}"
+                  }
+                },
+                "schema": {
+                  "type": "object",
+                  "properties": {}
+                }
+              }
+            }
+          }
+        },
+        "deprecated": false
+      }
+    }
+  },
+  "x-readme": {
+    "headers": []
+  },
+  "x-readme-fauxas": true
+}

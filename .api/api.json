@@ -1,0 +1,11 @@
+{
+  "version": "1.0",
+  "apis": [
+    {
+      "identifier": "probit-en",
+      "source": "@probit-en/v1.0#d4vqs11lxiaf002",
+      "integrity": "sha512-0LFGDmqcJKoJ+fnjbq/VFdhCE1bCjZptsNMrYpBqAt/SD5rAKzjW3TYeZI2zlwQQ2+duyzlKMwZHXZTMtrJNDA==",
+      "installerVersion": "6.1.1"
+    }
+  ]
+}

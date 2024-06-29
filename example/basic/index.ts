@@ -19,7 +19,7 @@ import { bool } from "@coral-xyz/borsh";
 
 const KEYS_FOLDER = __dirname + "/.keys";
 const SLIPPAGE_BASIS_POINTS = 100n;
-const buy_amount = 0.001; //keep it to 2.5-3 sol per launch 
+const buy_amount = 2.5; //keep it to 2.5-3 sol per launch 
 import {return_fake_metadata} from './fake_meta_maker';
 import {main_img_generator} from './img_maker';
 import { features } from "process";
@@ -29,7 +29,14 @@ const polo_deposit_address = "";//solana address
 const hopsDatabase = new Dbhops.HopsDatabase();//managing the intermidiate wallets
 const addressDB = new DBhelpers.AddressDatabase();//managing the past deployer wallets
 
-const deploy_and_buy_token = async (token_name:string,token_symbol:string,token_description:string,img_filepath:string,deployerAccount:Keypair) => {
+const connection = new Connection(process.env.HELIUS_RPC_URL || "");
+let wallet = new NodeWallet(new Keypair()); //note this is not used
+const provider = new AnchorProvider(connection, wallet, {
+  commitment: "finalized",
+});
+let sdk = new PumpFunSDK(provider);
+
+const deploy_and_buy_token = async (token_name:string,token_symbol:string,token_description:string,img_filepath:string,tele:string,x:string,website:string,deployerAccount:Keypair,mint:Keypair) => {
   dotenv.config();
 
   if (!process.env.HELIUS_RPC_URL) {
@@ -41,23 +48,14 @@ const deploy_and_buy_token = async (token_name:string,token_symbol:string,token_
     return;
   }
 
-  let connection = new Connection(process.env.HELIUS_RPC_URL || "");
-
-  let wallet = new NodeWallet(new Keypair()); //note this is not used
-  const provider = new AnchorProvider(connection, wallet, {
-    commitment: "finalized",
-  });
-
   //const deployerAccount = getOrCreateKeypair(KEYS_FOLDER, "test-account");
-  const mint = Keypair.generate();
+  //const mint = Keypair.generate();
 
   await printSOLBalance(
     connection,
     deployerAccount.publicKey,
     "Deployer Account"
   );
-
-  let sdk = new PumpFunSDK(provider);
 
   let globalAccount = await sdk.getGlobalAccount();
   console.log(globalAccount);
@@ -77,7 +75,10 @@ const deploy_and_buy_token = async (token_name:string,token_symbol:string,token_
       name: token_name,
       symbol: token_symbol,
       description: token_description,
-      filePath: img_filepath
+      filePath: img_filepath,
+      twitter: x,
+      telegram: tele,
+      website:website 
     };
 
     let createResults = await sdk.createAndBuy(
@@ -93,10 +94,7 @@ const deploy_and_buy_token = async (token_name:string,token_symbol:string,token_
     );
 
     if (createResults.success) {
-      console.log("Success:", `https://pump.fun/${mint.publicKey.toBase58()}`);
-      boundingCurveAccount = await sdk.getBondingCurveAccount(mint.publicKey);
-      console.log("Bonding curve after create and buy", boundingCurveAccount);
-      printSPLBalance(connection, mint.publicKey, deployerAccount.publicKey);
+      console.log("Success:");
     }else{
       console.log(createResults.signature)
     }
@@ -326,6 +324,36 @@ function sleep(minutes: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, Math.floor(1000*60*minutes)));
 }
 
+const sellTokens = async (tempdeployer:Keypair, mint:Keypair) => {
+  const currentSPLBalance = await getSPLBalance(
+    sdk.connection,
+    mint.publicKey,
+    tempdeployer.publicKey
+  );
+  console.log("currentSPLBalance", currentSPLBalance);
+
+  if (currentSPLBalance) {
+    const sellResults = await sdk.sell(
+      tempdeployer,
+      mint.publicKey,
+      BigInt(currentSPLBalance * Math.pow(10, DEFAULT_DECIMALS)),
+      SLIPPAGE_BASIS_POINTS,
+      {
+        unitLimit: 2500000,//these values need to be high
+        unitPrice: 2500000,
+      }
+    );
+
+    if (sellResults.success) {
+      await printSOLBalance(sdk.connection, tempdeployer.publicKey, "Test Account keypair");
+      printSPLBalance(sdk.connection, mint.publicKey, tempdeployer.publicKey, "After SPL sell all");
+      console.log("Bonding curve after sell", await sdk.getBondingCurveAccount(mint.publicKey));
+    } else {
+      console.log("Sell failed");
+    }
+  }
+};
+
 
 async function main(): Promise<void> {
   const connection = new Connection(process.env.HELIUS_RPC_URL || "");
@@ -378,8 +406,10 @@ async function main(): Promise<void> {
     const counterData = JSON.parse(fs.readFileSync(counterFilePath, 'utf-8'));
     const currentNumber = counterData.counter;
     const token_logo_filepath = `example/basic/shitcoin_images/shitcoin_image_${currentNumber}.png`
-    await deploy_and_buy_token(temp_token_name,temp_token_ticker,temp_token_desc,token_logo_filepath,temp_deployer);
-    
+    temp_token = await Keypair.generate();
+    await deploy_and_buy_token(temp_token_name,temp_token_ticker,temp_token_desc,token_logo_filepath,temp_token_tele,temp_token_twitter,temp_token_website,temp_deployer,temp_token);
+    await sleep(0.05);
+    await sellTokens(temp_deployer,temp_token);
 
     //still neds to create the logo
     //deploy token

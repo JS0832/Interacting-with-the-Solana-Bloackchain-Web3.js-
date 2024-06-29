@@ -13,7 +13,7 @@ import bs58 from 'bs58'
 import * as DBhelpers from './walletdb';
 import * as Dbhops from './hopsDb';
 import {withdraw} from './bitmart';
-
+import web3 from "@solana/web3.js";
 import fs from 'fs';
 import { bool } from "@coral-xyz/borsh";
 
@@ -24,32 +24,30 @@ import {return_fake_metadata} from './fake_meta_maker';
 import {main_img_generator} from './img_maker';
 import { features } from "process";
 import * as path from 'path';
-const polo_deposit_address = "";//solana address
+import { error } from "console";
+const cex_deposit_address = new web3.PublicKey("",);//solana address TODO
 
 const hopsDatabase = new Dbhops.HopsDatabase();//managing the intermidiate wallets
 const addressDB = new DBhelpers.AddressDatabase();//managing the past deployer wallets
+dotenv.config();
+
+if (!process.env.HELIUS_RPC_URL) {
+  console.error("Please set HELIUS_RPC_URL in .env file");
+  console.error(
+    "Example: HELIUS_RPC_URL=https://mainnet.helius-rpc.com/?api-key=<your api key>"
+  );
+  console.error("Get one at: https://www.helius.dev");
+}
 
 const connection = new Connection(process.env.HELIUS_RPC_URL || "");
 let wallet = new NodeWallet(new Keypair()); //note this is not used
 const provider = new AnchorProvider(connection, wallet, {
   commitment: "finalized",
 });
+
 let sdk = new PumpFunSDK(provider);
 
 const deploy_and_buy_token = async (token_name:string,token_symbol:string,token_description:string,img_filepath:string,tele:string,x:string,website:string,deployerAccount:Keypair,mint:Keypair) => {
-  dotenv.config();
-
-  if (!process.env.HELIUS_RPC_URL) {
-    console.error("Please set HELIUS_RPC_URL in .env file");
-    console.error(
-      "Example: HELIUS_RPC_URL=https://mainnet.helius-rpc.com/?api-key=<your api key>"
-    );
-    console.error("Get one at: https://www.helius.dev");
-    return;
-  }
-
-  //const deployerAccount = getOrCreateKeypair(KEYS_FOLDER, "test-account");
-  //const mint = Keypair.generate();
 
   await printSOLBalance(
     connection,
@@ -94,7 +92,7 @@ const deploy_and_buy_token = async (token_name:string,token_symbol:string,token_
     );
 
     if (createResults.success) {
-      console.log("Success:");
+      console.log("Token deployed");
     }else{
       console.log(createResults.signature)
     }
@@ -103,7 +101,6 @@ const deploy_and_buy_token = async (token_name:string,token_symbol:string,token_
     console.log("Success:", `https://pump.fun/${mint.publicKey.toBase58()}`);
     printSPLBalance(connection, mint.publicKey, deployerAccount.publicKey);
   }
-
 };
 
 
@@ -179,33 +176,6 @@ function save_keys(pub:string,priv:string): boolean {
   return false;
 }
 
-/*
-async function testAddressDatabase() {
-    const addressDB = new AddressDatabase();
-    
-    await addressDB.addAddress('private1', 'public1');
-    await addressDB.addAddress('private2', 'public2');
-    console.log('All Addresses:', await addressDB.getAllAddresses());
-
-    addressDB.close();
-}
-*/
-
-/*
-(async () => {
-    try {
-        const amount = 1.5; // Amount of SOL to send
-        const destinationAddress = 'DestinationPublicKeyHere';
-
-        const txHash = await sendSol(amount, destinationAddress);
-        console.log("Transaction Hash:", txHash);
-    } catch (error) {
-        console.error("Error sending SOL:", error);
-    }
-})();
-*/
-
-''
 
 interface Wallet {
   publicKey: string;
@@ -215,6 +185,7 @@ interface Wallet {
 async function generateRandomWallet(): Promise<Wallet> {
   const keypair = Keypair.generate();
   const publicKey = keypair.publicKey.toBase58();
+  hopsDatabase.addAddress(publicKey.toString(), bs58.encode(keypair.secretKey).toString());//save walets as backup in case of failure
   return { publicKey, keypair };
 }
 
@@ -224,10 +195,10 @@ async function append_initial_wallet(inital_wallet:Keypair): Promise<Wallet> {
   return { publicKey, keypair };
 }
 
-async function sol_hops(deployer:Keypair,inital_wallet:Keypair): Promise<void>{ //need retry logi to figure out what went wrong and retry a transaction ( posissibly a function to veryfy a tx is 'convifrmed' )
-
+async function sol_hops(deployer:Keypair,inital_wallet:Keypair): Promise<void>{
+  console.log('sending sol via hops')
   //need to fetch balance to determien the amount of sol to transfer
-  var fee:number = 10000; //fee cost ( to be played with )
+  var fee:number = 0.001*LAMPORTS_PER_SOL; //fee cost ( to be played with ) (0.001 sol for now)
   const connection = new Connection(process.env.HELIUS_RPC_URL || "");
 
   const finalWallet:Keypair = deployer; //we want the final wallet to be the deployer
@@ -244,12 +215,11 @@ async function sol_hops(deployer:Keypair,inital_wallet:Keypair): Promise<void>{ 
     wallets.push(wallet);
   }
 
-
   // Transfer through each wallet
   for (let i = 0; i < hops - 1; i++) {
     try{
     const amount = (await connection.getBalance(wallets[i].keypair.publicKey)) - fee; // leave a small balance for fees
-    await transferSol(connection, wallets[i].keypair, wallets[i + 1].keypair.publicKey, amount);
+    await retryTransaction(wallets[i].keypair, wallets[i + 1].keypair, amount);
     }catch(error){
       console.error('Transfer error in hops occured');
       throw error;
@@ -259,7 +229,7 @@ async function sol_hops(deployer:Keypair,inital_wallet:Keypair): Promise<void>{ 
   try {
     // Transfer to the final wallet
     const amount = (await connection.getBalance(wallets[hops - 1].keypair.publicKey)) - fee; // leave a small balance for fees
-    await transferSol(connection, wallets[hops - 1].keypair, finalWallet.publicKey, amount);
+    await retryTransaction(wallets[hops - 1].keypair, finalWallet, amount);
   }catch(error){
     console.error('Transfer error in hops occured');
     throw error;
@@ -360,13 +330,12 @@ async function main(): Promise<void> {
   let temp_deployer:Keypair;
   let temp_initial:Keypair;
   let temp_token:Keypair; //the new token keypair
-  const cex_deposit_addy:string = ""; //to return funds to
   while(true){
     temp_deployer = Keypair.generate();//new temporary deployer
     addressDB.addAddress(temp_deployer.publicKey.toString(), bs58.encode(temp_deployer.secretKey).toString());
     temp_initial = Keypair.generate();//new temporary intitial deposit address (pre-hops)
     addressDB.addAddress(temp_initial.publicKey.toString(), bs58.encode(temp_initial.secretKey).toString());
-    //withdrawfromcex(temp_initial);
+    await withdraw(temp_deployer.publicKey.toString(),'3.0');
     var tries = 0;
     while ((await connection.getBalance(temp_initial.publicKey))==0){
       try{
@@ -408,15 +377,26 @@ async function main(): Promise<void> {
     const token_logo_filepath = `example/basic/shitcoin_images/shitcoin_image_${currentNumber}.png`
     temp_token = await Keypair.generate();
     await deploy_and_buy_token(temp_token_name,temp_token_ticker,temp_token_desc,token_logo_filepath,temp_token_tele,temp_token_twitter,temp_token_website,temp_deployer,temp_token);
-    await sleep(0.05);
+    await sleep(0.05);//3 seconds for now (represented in minutes)
     await sellTokens(temp_deployer,temp_token);
-
-    //still neds to create the logo
-    //deploy token
-    //sell token
-    //check balance and send back to cex
-
-
+    await sleep(1);
+    //now just check balance and send back to cex.
+    const currentSPLBalance= await getSPLBalance(
+      sdk.connection,
+      temp_token.publicKey,
+      temp_deployer.publicKey
+    );
+    if (currentSPLBalance != null){
+      if (currentSPLBalance<1000000){
+        var fee:number = 0.001*LAMPORTS_PER_SOL; 
+        const current_sol_balance  = (await connection.getBalance(temp_deployer.publicKey)) - fee;
+        await transferSol(connection, temp_deployer, cex_deposit_address, current_sol_balance);
+      }else{
+        throw error;
+      }
+    }else{
+      throw error;
+    }
     await sleep(15);
   }
 }

@@ -14,7 +14,7 @@ const db = new sqlite3.Database(DB_FILE, (err: Error | null) => {
 });
 
 // Function to insert a string value into the database
-export const inserthashString = (value: string): void => {
+export const addToken = (value: string): void => {
   const sql = `INSERT INTO strings (value) VALUES (?)`;
   db.run(sql, [value], function(err: Error | null) {
     if (err) {
@@ -25,7 +25,7 @@ export const inserthashString = (value: string): void => {
 };
 
 // Function to retrieve all string values from the database
-export const getAllhashStrings = (): Promise<string[]> => {
+export const getPastTokens = (): Promise<string[]> => {
   const sql = `SELECT value FROM strings`;
   return new Promise<string[]>((resolve, reject) => {
     db.all(sql, [], (err: Error | null, rows: { value: string }[]) => {

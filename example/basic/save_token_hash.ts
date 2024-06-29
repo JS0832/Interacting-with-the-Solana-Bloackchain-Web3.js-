@@ -4,7 +4,7 @@ import sqlite3 from 'sqlite3';
 const DB_FILE = 'data.db';
 
 // Initialize SQLite database
-const db = new sqlite3.Database(DB_FILE, (err) => {
+const db = new sqlite3.Database(DB_FILE, (err: Error | null) => {
   if (err) {
     console.error('Error opening database ' + DB_FILE + ': ' + err.message);
   } else {
@@ -14,9 +14,9 @@ const db = new sqlite3.Database(DB_FILE, (err) => {
 });
 
 // Function to insert a string value into the database
-export const insertString = (value: string) => {
+export const inserthashString = (value: string): void => {
   const sql = `INSERT INTO strings (value) VALUES (?)`;
-  db.run(sql, [value], function(err) {
+  db.run(sql, [value], function(err: Error | null) {
     if (err) {
       return console.error('Error inserting value:', err.message);
     }
@@ -25,14 +25,14 @@ export const insertString = (value: string) => {
 };
 
 // Function to retrieve all string values from the database
-export const getAllStrings = () => {
+export const getAllhashStrings = (): Promise<string[]> => {
   const sql = `SELECT value FROM strings`;
   return new Promise<string[]>((resolve, reject) => {
-    db.all(sql, [], (err, rows) => {
+    db.all(sql, [], (err: Error | null, rows: { value: string }[]) => {
       if (err) {
         reject(err);
       } else {
-        const values = rows.map(rowas => row.value);
+        const values = rows.map(row => row.value);
         resolve(values);
       }
     });
@@ -41,7 +41,7 @@ export const getAllStrings = () => {
 
 // Close the database connection when the Node.js process exits
 process.on('SIGINT', () => {
-  db.close((err) => {
+  db.close((err: Error | null) => {
     if (err) {
       return console.error(err.message);
     }

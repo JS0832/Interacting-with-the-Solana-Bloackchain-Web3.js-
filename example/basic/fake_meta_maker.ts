@@ -32,6 +32,7 @@ interface Metadata {
     telegramLink: string;
     websiteLink: string;
     twitterLink: string;
+    keyword:string;
 }
 
 
@@ -40,10 +41,11 @@ export function return_fake_metadata(): Metadata {
     const name = temp_meta.token_name;
     const ticker = name;
     const description = temp_meta.description;
+    const keyword = temp_meta.keyword;
     const links = generateFakeLinks(name);
-    return {name,ticker,description,telegramLink:links.telegramLink, websiteLink: links.websiteLink,twitterLink: links.twitterLink}; // I have a problem it says "," expected i dont know why
+    return {name,ticker,description,keyword,telegramLink:links.telegramLink, websiteLink: links.websiteLink,twitterLink: links.twitterLink}; // I have a problem it says "," expected i dont know why
 }
 
 
 
-//console.log(return_fake_metadata());
+console.log(return_fake_metadata());

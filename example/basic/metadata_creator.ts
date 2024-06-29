@@ -19,18 +19,20 @@ function getRandomInteger(upperBound: number): number {
     return random_val;
 }
 
-function generateRandomWord(substrings: string[], maxLength: number): string {
+function generateRandomWord(substrings: string[], maxLength: number): {randomWord:string,keywordforimg:string} {
     // Shuffle the array of substrings
     const shuffledSubstrings = shuffleArray(substrings);
     // Initialize the random word and its current length
     const final_max_length = getRandomInteger(maxLength);
     let randomWord = '';
     let currentLength = 0;
+    let keywordforimg = '';
     // Iterate through the shuffled substrings and add them to the word if they fit within maxLength
     for (let substring of shuffledSubstrings) {
         if (currentLength + substring.length <= final_max_length) {
             randomWord += substring;
             currentLength += substring.length;
+            keywordforimg = substring;
         }
         // Stop if the maximum length is reached
         if (currentLength >= final_max_length) {
@@ -38,7 +40,7 @@ function generateRandomWord(substrings: string[], maxLength: number): string {
         }
     }
 
-    return randomWord;
+    return {randomWord,keywordforimg};
 }
 
 
@@ -60,13 +62,15 @@ function generateLoremIpsum(): string {
 
 
 
-export function generate_meta() :{ token_name: string, ticker: string,description: string }{
+export function generate_meta() :{ token_name: string, ticker: string,description: string,keyword:string}{
     const substrings = ['tate', 'trump', 'billy', 'michi','wif','dog','cat','elon','neuralink','moon','RNT','Real','Biden','Gay','lgbt','frens','X','nigger','Nigger','Putin','Jesus','Ansem','Boden','Baby','Baby','Shib','Shiba','BTC','CZ','dog','cat','dog','cat','dog','cat'];//can always add more here
     const maxLength = 12;
-    const ticker = generateRandomWord(substrings, maxLength);
+    const res = generateRandomWord(substrings, maxLength);
+    const ticker = res.randomWord;
+    const keyword = res.keywordforimg;
     const description = generateLoremIpsum();
     const token_name  = ticker;
-    return {token_name,ticker,description};
+    return {token_name,ticker,description,keyword};
 }
 
 

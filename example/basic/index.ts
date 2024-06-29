@@ -21,7 +21,9 @@ const KEYS_FOLDER = __dirname + "/.keys";
 const SLIPPAGE_BASIS_POINTS = 100n;
 const buy_amount = 0.001; //keep it to 2.5-3 sol per launch 
 import {return_fake_metadata} from './fake_meta_maker';
+import {main_img_generator} from './img_maker';
 import { features } from "process";
+import * as path from 'path';
 const polo_deposit_address = "";//solana address
 
 const hopsDatabase = new Dbhops.HopsDatabase();//managing the intermidiate wallets
@@ -46,13 +48,13 @@ const deploy_and_buy_token = async (token_name:string,token_symbol:string,token_
     commitment: "finalized",
   });
 
-  const testAccount = getOrCreateKeypair(KEYS_FOLDER, "test-account");
-  const mint = getOrCreateKeypair(KEYS_FOLDER, "mint");
+  const deployerAccount = getOrCreateKeypair(KEYS_FOLDER, "test-account");
+  const mint = Keypair.generate();
 
   await printSOLBalance(
     connection,
-    testAccount.publicKey,
-    "Test Account keypair"
+    deployerAccount.publicKey,
+    "Deployer Account"
   );
 
   let sdk = new PumpFunSDK(provider);
@@ -60,11 +62,11 @@ const deploy_and_buy_token = async (token_name:string,token_symbol:string,token_
   let globalAccount = await sdk.getGlobalAccount();
   console.log(globalAccount);
 
-  let currentSolBalance = await connection.getBalance(testAccount.publicKey);
+  let currentSolBalance = await connection.getBalance(deployerAccount.publicKey);
   if (currentSolBalance == 0) {
     console.log(
       "Please send some SOL to the test-account:",
-      testAccount.publicKey.toBase58()
+      deployerAccount.publicKey.toBase58()
     );
     return;
   }
@@ -75,11 +77,11 @@ const deploy_and_buy_token = async (token_name:string,token_symbol:string,token_
       name: token_name,
       symbol: token_symbol,
       description: token_description,
-      filePath: img_filepath,
+      filePath: img_filepath
     };
 
     let createResults = await sdk.createAndBuy(
-      testAccount,
+      deployerAccount,
       mint,
       tokenMetadata,
       BigInt(buy_amount * LAMPORTS_PER_SOL),
@@ -94,14 +96,14 @@ const deploy_and_buy_token = async (token_name:string,token_symbol:string,token_
       console.log("Success:", `https://pump.fun/${mint.publicKey.toBase58()}`);
       boundingCurveAccount = await sdk.getBondingCurveAccount(mint.publicKey);
       console.log("Bonding curve after create and buy", boundingCurveAccount);
-      printSPLBalance(connection, mint.publicKey, testAccount.publicKey);
+      printSPLBalance(connection, mint.publicKey, deployerAccount.publicKey);
     }else{
       console.log(createResults.signature)
     }
   } else {
     console.log("boundingCurveAccount", boundingCurveAccount);
     console.log("Success:", `https://pump.fun/${mint.publicKey.toBase58()}`);
-    printSPLBalance(connection, mint.publicKey, testAccount.publicKey);
+    printSPLBalance(connection, mint.publicKey, deployerAccount.publicKey);
   }
 
 };
@@ -369,32 +371,30 @@ async function main(): Promise<void> {
     var temp_token_twitter = fake_meta.twitterLink;
     var temp_token_website = fake_meta.websiteLink;
 
-    //still neds to create the logo and 
+    var keyword_for_img = fake_meta.keyword;
 
+    await main_img_generator(keyword_for_img);
+    const counterFilePath = path.join(__dirname, 'counter.json');
+    const counterData = JSON.parse(fs.readFileSync(counterFilePath, 'utf-8'));
+    const currentNumber = counterData.counter;
+    const token_logo_filepath = `example/basic/shitcoin_images/shitcoin_image_${currentNumber}.png`
+    await deploy_and_buy_token(temp_token_name,temp_token_ticker,temp_token_desc,token_logo_filepath);
+    
+
+    //still neds to create the logo
     //deploy token
-
     //sell token
-
-    //chack balance and send back to cex
+    //check balance and send back to cex
 
 
     await sleep(15);
   }
-
-  //withdrawfromcex("5cTXuW5ghS6a3MNzHHi79yNRVn5jhnB6NYJQre8AsWgo");
-  //withdraw funds from poloniex exchange
-  //withdraw from wallet back to poloniex 
-  //need some timed delay lets do 30 min 
-  //deploy_and_buy_token();
-  await sleep(15);
 }
 
 main().catch(error => {
   console.error("Error:", error);
   // Handle the unhandled error here
 });
-
-
 
 
 main();

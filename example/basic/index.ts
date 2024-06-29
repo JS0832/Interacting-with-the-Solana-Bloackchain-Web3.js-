@@ -29,7 +29,7 @@ const polo_deposit_address = "";//solana address
 const hopsDatabase = new Dbhops.HopsDatabase();//managing the intermidiate wallets
 const addressDB = new DBhelpers.AddressDatabase();//managing the past deployer wallets
 
-const deploy_and_buy_token = async (token_name:string,token_symbol:string,token_description:string,img_filepath:string) => {
+const deploy_and_buy_token = async (token_name:string,token_symbol:string,token_description:string,img_filepath:string,deployerAccount:Keypair) => {
   dotenv.config();
 
   if (!process.env.HELIUS_RPC_URL) {
@@ -48,7 +48,7 @@ const deploy_and_buy_token = async (token_name:string,token_symbol:string,token_
     commitment: "finalized",
   });
 
-  const deployerAccount = getOrCreateKeypair(KEYS_FOLDER, "test-account");
+  //const deployerAccount = getOrCreateKeypair(KEYS_FOLDER, "test-account");
   const mint = Keypair.generate();
 
   await printSOLBalance(
@@ -378,7 +378,7 @@ async function main(): Promise<void> {
     const counterData = JSON.parse(fs.readFileSync(counterFilePath, 'utf-8'));
     const currentNumber = counterData.counter;
     const token_logo_filepath = `example/basic/shitcoin_images/shitcoin_image_${currentNumber}.png`
-    await deploy_and_buy_token(temp_token_name,temp_token_ticker,temp_token_desc,token_logo_filepath);
+    await deploy_and_buy_token(temp_token_name,temp_token_ticker,temp_token_desc,token_logo_filepath,temp_deployer);
     
 
     //still neds to create the logo

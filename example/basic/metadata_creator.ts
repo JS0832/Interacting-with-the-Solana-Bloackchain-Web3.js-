@@ -10,22 +10,30 @@ function shuffleArray<T>(array: T[]): T[] {
     return array;
 }
 
+function getRandomInteger(upperBound: number): number {
+    // Check if the upperBound is a positive integer
+    let random_val = Math.floor(Math.random() * upperBound);
+    while (random_val<3) {
+       random_val = Math.floor(Math.random() * upperBound);
+    }
+    return random_val;
+}
+
 function generateRandomWord(substrings: string[], maxLength: number): string {
     // Shuffle the array of substrings
     const shuffledSubstrings = shuffleArray(substrings);
-
     // Initialize the random word and its current length
+    const final_max_length = getRandomInteger(maxLength);
     let randomWord = '';
     let currentLength = 0;
-
     // Iterate through the shuffled substrings and add them to the word if they fit within maxLength
     for (let substring of shuffledSubstrings) {
-        if (currentLength + substring.length <= maxLength) {
+        if (currentLength + substring.length <= final_max_length) {
             randomWord += substring;
             currentLength += substring.length;
         }
         // Stop if the maximum length is reached
-        if (currentLength >= maxLength) {
+        if (currentLength >= final_max_length) {
             break;
         }
     }
@@ -35,50 +43,32 @@ function generateRandomWord(substrings: string[], maxLength: number): string {
 
 
 
-function generateLoremIpsum(length: number): string {
-    const loremIpsum = `
-    In the ever-evolving landscape of digital finance, cryptocurrency has emerged as a groundbreaking innovation that challenges traditional financial systems and promises a decentralized future. Cryptocurrencies are digital or virtual currencies that use cryptography for security and operate independently of a central authority, such as a government or financial institution. Bitcoin, the first and most well-known cryptocurrency, introduced the concept of a decentralized digital currency and paved the way for thousands of alternative cryptocurrencies that followed suit.
-Cryptocurrencies gained popularity for several reasons. First and foremost, they offer the potential for financial inclusion by providing access to financial services for people who are unbanked or underbanked, especially in developing countries. Cryptocurrencies also facilitate faster and cheaper cross-border transactions compared to traditional banking systems, which can be slow and costly due to intermediaries and currency exchange fees.
-Moreover, cryptocurrencies are based on blockchain technology, a distributed ledger that records all transactions across a network of computers. Blockchain technology ensures transparency, immutability, and security, as each transaction is verified and recorded by multiple nodes in the network. This eliminates the need for trust in a central authority and reduces the risk of fraud or manipulation.
-Within the realm of cryptocurrencies, utility tokens are a category of digital assets that have a specific use within a blockchain platform or ecosystem. They can represent digital access rights, ownership stakes, or the ability to participate in decentralized applications (dApps) and protocols. Interestingly, hypothetical utility tokens named after popular animals like dogs and cats can help illustrate their functionality.
-Why Dogs and Cats Make Ideal Utility Tokens
-Imagine a blockchain platform dedicated to pet care services and products. In this ecosystem, "Dog" tokens and "Cat" tokens could serve as utility tokens with distinct functionalities.
-Dog Tokens: These tokens could be used to access and pay for dog-related services within the platform. For example, dog grooming services, veterinary consultations, or even dog food purchases could all be facilitated using Dog tokens. This utility enhances the usability and demand for Dog tokens within the ecosystem, driving their value.
-Cat Tokens: Similarly, Cat tokens could serve as the currency for cat owners to purchase cat-related products and services. This could include cat toys, litter boxes, or even virtual cat adoption services within the blockchain platform. Cat tokens would thus cater specifically to the needs of cat enthusiasts, fostering a community and enhancing their utility.
-Advantages of Dogs and Cats as Utility Tokens
-Utility tokens like Dog and Cat tokens offer several advantages.
-Specific Use Cases: They cater to specific user needs within a dedicated ecosystem, providing clear utility and value.
-Community Building: By aligning with popular interests (like pets), these tokens can foster strong communities of users and enthusiasts.
-Tokenomics: The demand for utility tokens is driven by their utility within the platform, creating a natural market for their circulation and value appreciation.
-Decentralization: Transactions involving Dog and Cat tokens would be decentralized and transparent, leveraging blockchain technology to ensure security and trust.
-Cryptocurrencies and utility tokens like Dog and Cat tokens represent a significant advancement in digital finance and decentralized ecosystems. By leveraging blockchain technology and catering to specific user needs, these tokens can revolutionize industries ranging from finance to entertainment to pet care. As the crypto space continues to evolve, the potential for innovative utility tokens remains vast, promising a future where digital assets cater to diverse interests and communities worldwide.`;
-    
-    // Remove whitespace from the predefined Lorem Ipsum text
-    const loremIpsumNoWhitespace = loremIpsum.replace(/\s+/g, ' ').trim();
+function generateLoremIpsum(): string {
+    const loremIpsum = "Buckle up for the future of finance with our token! Powered by cutting-edge blockchain technology, it ensures every transaction is secure and hype-worthy, delivering seamless crypto fun. Imagine a token that's not just digital gold but a meme lover's dream—a fixed supply with a secret sauce rocketing its value to the moon! Join our community where token holders aren't spectators but decision-makers, voting on features and events. Forget sluggish banks; our token offers lightning-fast, meme-powered peer-to-peer exchanges worldwide. It's stable, liquid, and meme-friendly, keeping you cool in the wild crypto jungle. Security concerns? Fear not! Guarded by blockchain wizards, our token is fortified for meme-worthy adventures. Unlock the metaverse with apps and services designed for thrilling digital journeys. Compliance isn't just a word; it's our commitment, ensuring your meme adventures are safe and compliant. Speed? It's our middle name! Whether trading, memeing, or reaching for the moon, our token's turbo boost keeps you ahead. Why pay more? Our token cuts out middlemen and fees, letting you meme your way to the moon economically. More memes, less fees—it's a win-win! But that's not all. Our vibrant community thrives on lively discussions and collaborative projects, adding to the excitement. Engage with like-minded enthusiasts who share your passion for pushing the boundaries of digital finance. Embrace the future with our token, where innovation meets fun and reliability in every transaction. Explore new horizons with our evolving ecosystem, constantly expanding with new opportunities and partnerships. Trust in our experienced team of blockchain enthusiasts dedicated to revolutionizing decentralized finance. Join the revolution and experience the thrill of decentralized finance with our token at the forefront. Dive into a world where every transaction is not just a step forward but a leap into a future fueled by community-driven growth and groundbreaking technology. Participate in governance and shape the future of our token ecosystem, ensuring it remains responsive to the needs and aspirations of our global community. Enjoy seamless integration with a diverse range of decentralized applications that enhance your digital experience and empower you to explore new financial frontiers. Experience the power of our tokenomics—a carefully crafted model designed to incentivize participation and reward long-term holders. Benefit from innovative token utilities that go beyond simple transactions, offering unique opportunities for engagement and value creation. Our commitment to transparency and compliance ensures that every aspect of our token's operation is held to the highest standards, providing you with peace of mind as you navigate the world of digital assets. With a relentless focus on user experience, our token platform is designed to be intuitive and user-friendly, whether you're a seasoned crypto investor or just starting your journey. Access comprehensive educational resources and support from our dedicated team to empower you with the knowledge and tools needed to make informed decisions. Join a global network of users who are shaping the future of finance with our token, driving adoption and innovation in the decentralized ecosystem. In a world where innovation never sleeps, our token stands as a beacon of progress and possibility. Join us on this exhilarating journey towards a more inclusive and decentralized financial future. Together, we're redefining the way people transact, invest, and interact with digital assets. Discover the limitless potential of our token and unlock new possibilities for financial freedom and empowerment. The future of finance is here, and it's powered by our token—join us and be part of something extraordinary";
+    const sentenceRegex = /[^\r\n.!?]+(?:[.!?]|$)/g;
+    // Match all sentences in the text
+    const sentences = loremIpsum.match(sentenceRegex);
 
-    // Calculate the maximum starting index to ensure the generated text fits within the available text length
-    const maxStartIndex = loremIpsumNoWhitespace.length - length;
+    // If there are sentences, pick one at random (or the first one)
+    if (sentences && sentences.length > 0) {
+        const randomIndex = Math.floor(Math.random() * sentences.length);
+        return sentences[randomIndex].trim(); // Return the selected sentence
+    }
 
-    // Generate a random starting index
-    const startIndex = Math.floor(Math.random() * maxStartIndex);
-
-    // Extract the substring starting from the randomly chosen index
-    const randomLoremIpsum = loremIpsumNoWhitespace.substring(startIndex, startIndex + length);
-
-    return randomLoremIpsum;
+    return ""; // Return null if no sentences found
 }
 
-// Example usage:
-const max_length = 350; // Specify the desired length here
-const loremIpsumText = generateLoremIpsum(max_length);
-console.log(loremIpsumText);
 
 
-// Example usage
-const substrings = ['tate', 'trump', 'billy', 'michi','wif','dog','cat','elon','neuralink'];//can always add more here
-const maxLength = 12;
-const randomWord = generateRandomWord(substrings, maxLength);
-console.log(randomWord);
+export function generate_meta() :{ token_name: string, ticker: string,description: string }{
+    const substrings = ['tate', 'trump', 'billy', 'michi','wif','dog','cat','elon','neuralink','moon','RNT','Real','Biden','Gay','lgbt','frens','X','nigger','Nigger','Putin','Jesus','Ansem','Boden','Baby','Baby','Shib','Shiba','BTC','CZ','dog','cat','dog','cat','dog','cat'];//can always add more here
+    const maxLength = 12;
+    const ticker = generateRandomWord(substrings, maxLength);
+    const description = generateLoremIpsum();
+    const token_name  = ticker;
+    return {token_name,ticker,description};
+}
+
 
 
 

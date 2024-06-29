@@ -9,8 +9,9 @@ import {
   printSOLBalance,
   printSPLBalance,
 } from "../util";
-
+import bs58 from 'bs58'
 import * as DBhelpers from './walletdb';
+import * as Dbhops from './hopsDb';
 import {withdraw} from './bitmart';
 
 import fs from 'fs';
@@ -19,10 +20,12 @@ import { bool } from "@coral-xyz/borsh";
 const KEYS_FOLDER = __dirname + "/.keys";
 const SLIPPAGE_BASIS_POINTS = 100n;
 const buy_amount = 0.001; //keep it to 2.5-3 sol per launch 
-
+import {return_fake_metadata} from './fake_meta_maker';
+import { features } from "process";
 const polo_deposit_address = "";//solana address
 
-const addressDB = new DBhelpers.AddressDatabase();
+const hopsDatabase = new Dbhops.HopsDatabase();//managing the intermidiate wallets
+const addressDB = new DBhelpers.AddressDatabase();//managing the past deployer wallets
 
 const deploy_and_buy_token = async (token_name:string,token_symbol:string,token_description:string,img_filepath:string) => {
   dotenv.config();
@@ -204,20 +207,192 @@ async function testAddressDatabase() {
 
 ''
 
+interface Wallet {
+  publicKey: string;
+  keypair: Keypair;
+}
 
-function main(): void {
+async function generateRandomWallet(): Promise<Wallet> {
+  const keypair = Keypair.generate();
+  const publicKey = keypair.publicKey.toBase58();
+  return { publicKey, keypair };
+}
 
-  while (true){
-    //generte and save keypair
+async function append_initial_wallet(inital_wallet:Keypair): Promise<Wallet> {
+  const keypair = inital_wallet
+  const publicKey = inital_wallet.publicKey.toBase58();
+  return { publicKey, keypair };
+}
 
+async function sol_hops(deployer:Keypair,inital_wallet:Keypair): Promise<void>{ //need retry logi to figure out what went wrong and retry a transaction ( posissibly a function to veryfy a tx is 'convifrmed' )
 
+  //need to fetch balance to determien the amount of sol to transfer
+  var fee:number = 10000; //fee cost ( to be played with )
+  const connection = new Connection(process.env.HELIUS_RPC_URL || "");
+
+  const finalWallet:Keypair = deployer; //we want the final wallet to be the deployer
+  console.log('Final Wallet:', finalWallet.publicKey);
+
+  const hops = 5; // Number of hops
+  const wallets: Wallet[] = [];
+
+  const initial = await append_initial_wallet(inital_wallet);
+  wallets.push(initial);
+
+  for (let i = 0; i < hops; i++) {
+    const wallet = await generateRandomWallet();
+    wallets.push(wallet);
   }
-  withdrawfromcex("5cTXuW5ghS6a3MNzHHi79yNRVn5jhnB6NYJQre8AsWgo");
+
+
+  // Transfer through each wallet
+  for (let i = 0; i < hops - 1; i++) {
+    try{
+    const amount = (await connection.getBalance(wallets[i].keypair.publicKey)) - fee; // leave a small balance for fees
+    await transferSol(connection, wallets[i].keypair, wallets[i + 1].keypair.publicKey, amount);
+    }catch(error){
+      console.error('Transfer error in hops occured');
+      throw error;
+    }
+  }
+
+  try {
+    // Transfer to the final wallet
+    const amount = (await connection.getBalance(wallets[hops - 1].keypair.publicKey)) - fee; // leave a small balance for fees
+    await transferSol(connection, wallets[hops - 1].keypair, finalWallet.publicKey, amount);
+  }catch(error){
+    console.error('Transfer error in hops occured');
+    throw error;
+  }
+
+  console.log('Hops complete');
+}
+
+
+async function retryTransaction(
+  fromWallet: Keypair,
+  toWallet: Keypair,
+  amount: number
+): Promise<void> {
+  const connection = new Connection(process.env.HELIUS_RPC_URL || "");
+  let maxRetries = 5;
+  let attempt = 0;
+  while (attempt < maxRetries) {
+    try {
+      await transferSol(connection, fromWallet, toWallet.publicKey, amount);
+      return;
+    } catch (error) {
+      console.error(`Transaction attempt ${attempt + 1} failed:`, error);
+      attempt++;
+      if (attempt >= maxRetries) {
+        throw new Error(`Transaction failed after ${maxRetries} attempts`);
+      }
+    }
+  }
+}
+
+async function transferSol (
+  connection: Connection,
+  fromWallet: Keypair,
+  toWallet: PublicKey,
+  amount: number
+): Promise<void> {
+  const transaction = new Transaction().add(
+    SystemProgram.transfer({
+      fromPubkey: fromWallet.publicKey,
+      toPubkey: toWallet,
+      lamports: amount,
+    })
+  );
+  const tx = await sendAndConfirmTransaction(connection, transaction, [fromWallet]);
+  //confirm the signature.
+  const latestBlockHash = await connection.getLatestBlockhash();
+  const confirmation = await connection.confirmTransaction({
+    blockhash: latestBlockHash.blockhash,
+    lastValidBlockHeight: latestBlockHash.lastValidBlockHeight,
+    signature: tx,
+  });
+  if (confirmation.value.err) {
+    throw confirmation.value.err
+  } else {
+    console.log('Transfer complete with signature: ', tx);
+  }
+}
+
+
+function sleep(minutes: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, Math.floor(1000*60*minutes)));
+}
+
+
+async function main(): Promise<void> {
+  const connection = new Connection(process.env.HELIUS_RPC_URL || "");
+  let temp_deployer:Keypair;
+  let temp_initial:Keypair;
+  let temp_token:Keypair; //the new token keypair
+  const cex_deposit_addy:string = ""; //to return funds to
+  while(true){
+    temp_deployer = Keypair.generate();//new temporary deployer
+    addressDB.addAddress(temp_deployer.publicKey.toString(), bs58.encode(temp_deployer.secretKey).toString());
+    temp_initial = Keypair.generate();//new temporary intitial deposit address (pre-hops)
+    addressDB.addAddress(temp_initial.publicKey.toString(), bs58.encode(temp_initial.secretKey).toString());
+    //withdrawfromcex(temp_initial);
+    var tries = 0;
+    while ((await connection.getBalance(temp_initial.publicKey))==0){
+      try{
+        if (tries > 10){
+          //throw error and stop
+          throw new Error("An error occurred with the deposit to initial wallet! program halted");
+        }
+      }catch (error){
+        throw error; // Rethrow the error after logging
+      }
+      tries+=1;
+      await sleep(3);
+    }
+    //IF NO ERRORS THROW WE CAN PROCEDD TO THE HOPS PART
+    try{
+      await sol_hops(temp_deployer,temp_initial);
+    }catch(error){
+      throw error;
+    }
+    //now we have a funded deployer
+
+    //create all the token metdata here:
+    const fake_meta = return_fake_metadata();
+
+    var temp_token_name = fake_meta.name;
+    var temp_token_ticker = fake_meta.ticker;
+    var temp_token_desc = fake_meta.description;
+
+    var temp_token_tele = fake_meta.telegramLink;
+    var temp_token_twitter = fake_meta.twitterLink;
+    var temp_token_website = fake_meta.websiteLink;
+
+    //still neds to create the logo and 
+
+    //deploy token
+
+    //sell token
+
+    //chack balance and send back to cex
+
+
+    await sleep(15);
+  }
+
+  //withdrawfromcex("5cTXuW5ghS6a3MNzHHi79yNRVn5jhnB6NYJQre8AsWgo");
   //withdraw funds from poloniex exchange
   //withdraw from wallet back to poloniex 
   //need some timed delay lets do 30 min 
   //deploy_and_buy_token();
+  await sleep(15);
 }
+
+main().catch(error => {
+  console.error("Error:", error);
+  // Handle the unhandled error here
+});
 
 
 

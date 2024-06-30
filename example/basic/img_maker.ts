@@ -69,7 +69,3 @@ async function downloadImage(url: string, filePath: string): Promise<void> {
     }
 }
 
-
-
-
-main("trump with cat");

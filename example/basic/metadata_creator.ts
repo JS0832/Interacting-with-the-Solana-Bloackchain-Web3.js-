@@ -63,7 +63,7 @@ function generateLoremIpsum(): string {
 
 
 export function generate_meta() :{ token_name: string, ticker: string,description: string,keyword:string}{
-    const substrings = ['tate', 'trump', 'billy', 'michi','wif','dog','cat','elon','neuralink','moon','RNT','Real','Biden','Gay','lgbt','frens','X','nigger','Nigger','Putin','Jesus','Ansem','Boden','Baby','Baby','Shib','Shiba','BTC','CZ','dog','cat','dog','cat','dog','cat'];//can always add more here
+    const substrings = ['doge','tate', 'trump', 'billy', 'michi','wif','dog','cat','elon','neuralink','moon','Real','Biden','Gay','lgbt','frens','X','nigger','Nigger','Putin','Jesus','Ansem','Boden','Baby','Baby','Shib','Shiba','BTC','dog','cat','dog','cat','dog','cat','sol'];//can always add more here
     const maxLength = 12;
     const res = generateRandomWord(substrings, maxLength);
     const ticker = res.randomWord;

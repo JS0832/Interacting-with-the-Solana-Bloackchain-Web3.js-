@@ -46,6 +46,3 @@ export function return_fake_metadata(): Metadata {
     return {name,ticker,description,keyword,telegramLink:links.telegramLink, websiteLink: links.websiteLink,twitterLink: links.twitterLink}; // I have a problem it says "," expected i dont know why
 }
 
-
-
-console.log(return_fake_metadata());

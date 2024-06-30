@@ -16,21 +16,21 @@ import {withdraw} from './bitmart';
 import web3 from "@solana/web3.js";
 import fs from 'fs';
 import { bool } from "@coral-xyz/borsh";
-
 const KEYS_FOLDER = __dirname + "/.keys";
 const SLIPPAGE_BASIS_POINTS = 100n;
-const buy_amount = 2.5; //keep it to 2.5-3 sol per launch 
+const buy_amount = 0.1; //keep it to .1 sol per launch 
 import {return_fake_metadata} from './fake_meta_maker';
 import {main_img_generator} from './img_maker';
 import { features } from "process";
 import * as path from 'path';
 import { error } from "console";
-const cex_deposit_address = new web3.PublicKey("",);//solana address TODO
+const cex_deposit_address = new web3.PublicKey("HyEUXPoK3wmsWsaK9wpCWMKGUdM3Aw2iyLvxB2zmPmmu",);//solana address TODO
+import {getNextWallet} from'./initial_wallet_manager';
+import { promises } from "dns";
 
 const hopsDatabase = new Dbhops.HopsDatabase();//managing the intermidiate wallets
 const addressDB = new DBhelpers.AddressDatabase();//managing the past deployer wallets
 dotenv.config();
-
 if (!process.env.HELIUS_RPC_URL) {
   console.error("Please set HELIUS_RPC_URL in .env file");
   console.error(
@@ -175,7 +175,6 @@ function save_keys(pub:string,priv:string): boolean {
   });
   return false;
 }
-
 
 interface Wallet {
   publicKey: string;
@@ -324,6 +323,43 @@ const sellTokens = async (tempdeployer:Keypair, mint:Keypair) => {
   }
 };
 
+function createKeypairFromString(privateKeyString: string): Keypair {
+
+  // Decode the base58 strings to Uint8Array
+  const privateKeyBytes = bs58.decode(privateKeyString);
+
+  // Combine the private and public key bytes into one Uint8Array
+  const keypairBytes = new Uint8Array([...privateKeyBytes]);
+
+  // Create and return the Keypair object
+  return Keypair.fromSecretKey(keypairBytes);
+}
+
+
+
+// Async function to use wallet and return a Keypair
+async function getTempInitialWallet(): Promise<Keypair> {
+  try {
+    const wallet = await getNextWallet();
+    if (wallet) {
+      console.log('Retrieved Wallet:');
+      console.log(`ID: ${wallet.id}`);
+      console.log(`Public Key: ${wallet.publicKey}`);
+      console.log(`Private Key: ${wallet.privateKey}`);
+      const tempKeypair = createKeypairFromString(wallet.privateKey); //figure this out as i need this to save the initial wallet deployer
+      return tempKeypair;
+    } else {
+      console.log('No more wallets available.');
+      throw new Error('No more wallets available.'); // Throw an error if no wallet is available
+    }
+  } catch (error) {
+    console.error('Error retrieving wallet:', error);
+    throw error; // Re-throw the error to ensure the promise is rejected
+  }
+}
+
+
+
 
 async function main(): Promise<void> {
   const connection = new Connection(process.env.HELIUS_RPC_URL || "");
@@ -333,9 +369,8 @@ async function main(): Promise<void> {
   while(true){
     temp_deployer = Keypair.generate();//new temporary deployer
     addressDB.addAddress(temp_deployer.publicKey.toString(), bs58.encode(temp_deployer.secretKey).toString());
-    temp_initial = Keypair.generate();//new temporary intitial deposit address (pre-hops)
-    addressDB.addAddress(temp_initial.publicKey.toString(), bs58.encode(temp_initial.secretKey).toString());
-    await withdraw(temp_deployer.publicKey.toString(),'3.0');
+    temp_initial = await getTempInitialWallet();//new temporary intitial deposit address (pre-hops) this will be fetches form a pre created database of wallets
+    await withdraw(temp_deployer.publicKey.toString(),'0.15');
     var tries = 0;
     while ((await connection.getBalance(temp_initial.publicKey))==0){
       try{
@@ -375,7 +410,12 @@ async function main(): Promise<void> {
     const counterData = JSON.parse(fs.readFileSync(counterFilePath, 'utf-8'));
     const currentNumber = counterData.counter;
     const token_logo_filepath = `example/basic/shitcoin_images/shitcoin_image_${currentNumber}.png`
-    temp_token = await Keypair.generate();
+    let temp_token = Keypair.generate();
+    console.log('generating token addess to end with pump');
+    while (!temp_token.publicKey.toBase58().endsWith("pump")){
+      temp_token = Keypair.generate();
+    }
+    console.log('Sucesfully generated the token adress: ',temp_token.publicKey.toString());
     await deploy_and_buy_token(temp_token_name,temp_token_ticker,temp_token_desc,token_logo_filepath,temp_token_tele,temp_token_twitter,temp_token_website,temp_deployer,temp_token);
     await sleep(0.05);//3 seconds for now (represented in minutes)
     await sellTokens(temp_deployer,temp_token);
@@ -401,10 +441,17 @@ async function main(): Promise<void> {
   }
 }
 
+/*
 main().catch(error => {
   console.error("Error:", error);
   // Handle the unhandled error here
+});   */
+
+// Run the useWallet function
+getTempInitialWallet().then(keypair => {
+  console.log('pub:', keypair.publicKey.toString());
+}).catch(error => {
+  console.error('Failed to use wallet:', error);
 });
 
-
-main();
+//main();

@@ -364,14 +364,20 @@ async function getTempInitialWallet(): Promise<Keypair> {
 async function main(): Promise<void> {
   const connection = new Connection(process.env.HELIUS_RPC_URL || "");
   let temp_deployer:Keypair;
-  let temp_initial:Keypair;
+  let temp_initial:Keypair = Keypair.generate();
   let temp_token:Keypair; //the new token keypair
   while(true){
     temp_deployer = Keypair.generate();//new temporary deployer
     addressDB.addAddress(temp_deployer.publicKey.toString(), bs58.encode(temp_deployer.secretKey).toString());
-    temp_initial = await getTempInitialWallet();//new temporary intitial deposit address (pre-hops) this will be fetches form a pre created database of wallets
-    await withdraw(temp_deployer.publicKey.toString(),'0.15');
+    getTempInitialWallet().then(keypair => {
+      temp_initial = keypair;//reasigning it to the desired keypair
+    }).catch(error => {
+      console.error('Failed to use wallet:', error);
+      return;
+    });
+    await withdraw(temp_initial.publicKey.toString(),'0.15');
     var tries = 0;
+    console.log('Waiting for deposit confirmation to initial wallet: ',temp_initial.publicKey.toString());
     while ((await connection.getBalance(temp_initial.publicKey))==0){
       try{
         if (tries > 10){
@@ -385,13 +391,15 @@ async function main(): Promise<void> {
       await sleep(3);
     }
     //IF NO ERRORS THROW WE CAN PROCEDD TO THE HOPS PART
+    console.log('Deposit has been confirmed at: ',temp_initial.publicKey.toString());
+    console.log('performaing sol hops from initial wallet to deployer: ',temp_deployer.publicKey.toString());
     try{
       await sol_hops(temp_deployer,temp_initial);
     }catch(error){
       throw error;
     }
     //now we have a funded deployer
-
+    console.log('Creating metadata for for new token.....')
     //create all the token metdata here:
     const fake_meta = return_fake_metadata();
 
@@ -404,7 +412,7 @@ async function main(): Promise<void> {
     var temp_token_website = fake_meta.websiteLink;
 
     var keyword_for_img = fake_meta.keyword;
-
+    console.log('Creating img for for new token.....')
     await main_img_generator(keyword_for_img);
     const counterFilePath = path.join(__dirname, 'counter.json');
     const counterData = JSON.parse(fs.readFileSync(counterFilePath, 'utf-8'));
@@ -416,6 +424,7 @@ async function main(): Promise<void> {
       temp_token = Keypair.generate();
     }
     console.log('Sucesfully generated the token adress: ',temp_token.publicKey.toString());
+    console.log('creating and buyignt the new token...')
     await deploy_and_buy_token(temp_token_name,temp_token_ticker,temp_token_desc,token_logo_filepath,temp_token_tele,temp_token_twitter,temp_token_website,temp_deployer,temp_token);
     await sleep(0.05);//3 seconds for now (represented in minutes)
     await sellTokens(temp_deployer,temp_token);
@@ -430,6 +439,8 @@ async function main(): Promise<void> {
       if (currentSPLBalance<1000000){
         var fee:number = 0.001*LAMPORTS_PER_SOL; 
         const current_sol_balance  = (await connection.getBalance(temp_deployer.publicKey)) - fee;
+        console.log('curent sol balance after the sell is: ',current_sol_balance);
+        console.log('Sending back to cex and waiting.....');
         await transferSol(connection, temp_deployer, cex_deposit_address, current_sol_balance);
       }else{
         throw error;
@@ -440,6 +451,7 @@ async function main(): Promise<void> {
     await sleep(15);
   }
 }
+
 
 /*
 main().catch(error => {

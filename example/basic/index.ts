@@ -18,13 +18,13 @@ import fs from 'fs';
 import { bool } from "@coral-xyz/borsh";
 const KEYS_FOLDER = __dirname + "/.keys";
 const SLIPPAGE_BASIS_POINTS = 100n;
-const buy_amount = 0.1; //keep it to .1 sol per launch 
+const buy_amount = 2.5; //keep it to .1 sol per launch 
 import {return_fake_metadata} from './fake_meta_maker';
 import {main_img_generator} from './img_maker';
 import { features } from "process";
 import * as path from 'path';
 import { error } from "console";
-const cex_deposit_address = new web3.PublicKey("HyEUXPoK3wmsWsaK9wpCWMKGUdM3Aw2iyLvxB2zmPmmu",);//solana address TODO
+const cex_deposit_address = new web3.PublicKey("HyEUXPoK3wmsWsaK9wpCWMKGUdM3Aw2iyLvxB2zmPmmu");//solana address TODO
 import {getNextWallet} from'./initial_wallet_manager';
 import { promises } from "dns";
 
@@ -197,13 +197,13 @@ async function append_initial_wallet(inital_wallet:Keypair): Promise<Wallet> {
 async function sol_hops(deployer:Keypair,inital_wallet:Keypair): Promise<void>{
   console.log('sending sol via hops')
   //need to fetch balance to determien the amount of sol to transfer
-  var fee:number = 0.001*LAMPORTS_PER_SOL; //fee cost ( to be played with ) (0.001 sol for now)
+  var fee:number = 0.0015*LAMPORTS_PER_SOL; //fee cost ( to be played with ) (0.001 sol for now)
   const connection = new Connection(process.env.HELIUS_RPC_URL || "");
 
   const finalWallet:Keypair = deployer; //we want the final wallet to be the deployer
-  console.log('Final Wallet:', finalWallet.publicKey);
+  console.log('Final Wallet:', finalWallet.publicKey.toString());
 
-  const hops = 5; // Number of hops
+  const hops = 4; // Number of hops
   const wallets: Wallet[] = [];
 
   const initial = await append_initial_wallet(inital_wallet);
@@ -213,10 +213,11 @@ async function sol_hops(deployer:Keypair,inital_wallet:Keypair): Promise<void>{
     const wallet = await generateRandomWallet();
     wallets.push(wallet);
   }
-
+  sleep(0.2);
   // Transfer through each wallet
   for (let i = 0; i < hops - 1; i++) {
     try{
+    sleep(0.1);
     const amount = (await connection.getBalance(wallets[i].keypair.publicKey)) - fee; // leave a small balance for fees
     await retryTransaction(wallets[i].keypair, wallets[i + 1].keypair, amount);
     }catch(error){
@@ -224,7 +225,7 @@ async function sol_hops(deployer:Keypair,inital_wallet:Keypair): Promise<void>{
       throw error;
     }
   }
-
+  sleep(0.1);
   try {
     // Transfer to the final wallet
     const amount = (await connection.getBalance(wallets[hops - 1].keypair.publicKey)) - fee; // leave a small balance for fees
@@ -369,18 +370,13 @@ async function main(): Promise<void> {
   while(true){
     temp_deployer = Keypair.generate();//new temporary deployer
     addressDB.addAddress(temp_deployer.publicKey.toString(), bs58.encode(temp_deployer.secretKey).toString());
-    getTempInitialWallet().then(keypair => {
-      temp_initial = keypair;//reasigning it to the desired keypair
-    }).catch(error => {
-      console.error('Failed to use wallet:', error);
-      return;
-    });
-    await withdraw(temp_initial.publicKey.toString(),'0.15');
-    var tries = 0;
+    temp_initial = await getTempInitialWallet();//pre defined address
     console.log('Waiting for deposit confirmation to initial wallet: ',temp_initial.publicKey.toString());
-    while ((await connection.getBalance(temp_initial.publicKey))==0){
+    await withdraw(temp_initial.publicKey.toString(),'3');
+    var tries = 0;
+    while ((await connection.getBalance(temp_initial.publicKey))<0.1){
       try{
-        if (tries > 10){
+        if (tries > 20){
           //throw error and stop
           throw new Error("An error occurred with the deposit to initial wallet! program halted");
         }
@@ -388,9 +384,9 @@ async function main(): Promise<void> {
         throw error; // Rethrow the error after logging
       }
       tries+=1;
-      await sleep(3);
+      await sleep(1);
     }
-    //IF NO ERRORS THROW WE CAN PROCEDD TO THE HOPS PART
+    //IF NO ERRORS THROW WE CAN PROCEED TO THE HOPS PART
     console.log('Deposit has been confirmed at: ',temp_initial.publicKey.toString());
     console.log('performaing sol hops from initial wallet to deployer: ',temp_deployer.publicKey.toString());
     try{
@@ -416,13 +412,14 @@ async function main(): Promise<void> {
     await main_img_generator(keyword_for_img);
     const counterFilePath = path.join(__dirname, 'counter.json');
     const counterData = JSON.parse(fs.readFileSync(counterFilePath, 'utf-8'));
-    const currentNumber = counterData.counter;
+    const currentNumber = counterData.counter-1;//minus 1 as it was incremented
     const token_logo_filepath = `example/basic/shitcoin_images/shitcoin_image_${currentNumber}.png`
+    console.log('create token logo: ',token_logo_filepath);
     let temp_token = Keypair.generate();
-    console.log('generating token addess to end with pump');
+    /*console.log('generating token addess to end with pump');
     while (!temp_token.publicKey.toBase58().endsWith("pump")){
       temp_token = Keypair.generate();
-    }
+    }for now i will comment it out*/
     console.log('Sucesfully generated the token adress: ',temp_token.publicKey.toString());
     console.log('creating and buyignt the new token...')
     await deploy_and_buy_token(temp_token_name,temp_token_ticker,temp_token_desc,token_logo_filepath,temp_token_tele,temp_token_twitter,temp_token_website,temp_deployer,temp_token);
@@ -448,22 +445,14 @@ async function main(): Promise<void> {
     }else{
       throw error;
     }
-    await sleep(15);
+    await sleep(5);
   }
 }
 
 
-/*
+
 main().catch(error => {
   console.error("Error:", error);
   // Handle the unhandled error here
-});   */
+});   
 
-// Run the useWallet function
-getTempInitialWallet().then(keypair => {
-  console.log('pub:', keypair.publicKey.toString());
-}).catch(error => {
-  console.error('Failed to use wallet:', error);
-});
-
-//main();

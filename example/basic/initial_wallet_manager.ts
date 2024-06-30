@@ -103,4 +103,4 @@ export async function getNextWallet(): Promise<Wallet | null> {
 
 //getNextWallet();
 
-generateAndStoreWallets();
+//generateAndStoreWallets();

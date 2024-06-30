@@ -9,7 +9,7 @@ export class HopsDatabase {
     private dbhops: sqlite3.Database;
 
     constructor() {
-        this.dbhops = new sqlite3.Database('hops-database.dbhops'); // Using file-based database
+        this.dbhops = new sqlite3.Database('hops-database.db'); // Using file-based database
         this.createTable(); // Create the addresses table on initialization
     }
 
@@ -29,7 +29,7 @@ export class HopsDatabase {
             if (err) {
                 console.error('Error adding address:', err.message);
             } else {
-                console.log('Address added successfully');
+                console.log('Hops Address added successfully');
             }
         });
     }

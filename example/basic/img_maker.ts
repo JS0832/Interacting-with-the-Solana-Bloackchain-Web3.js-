@@ -5,6 +5,7 @@ import { Prodia } from "prodia.js";
 import axios from 'axios';
 import * as fs from 'fs';
 import * as path from 'path';
+import sharp from 'sharp';
 
 const prodia = createProdia({
 	apiKey: "253de4a9-9195-4c0b-a490-5a631f6c0a91",
@@ -14,7 +15,7 @@ const prodia = createProdia({
 async function generate(input_string:string):Promise<ProdiaJobSucceeded | ProdiaJobFailed>{
 	const job = await prodia.generate({
 		prompt: input_string,
-    aspect_ratio : "square",
+        aspect_ratio : "square"
 	});
 	const res = await prodia.wait(job);
   return res;

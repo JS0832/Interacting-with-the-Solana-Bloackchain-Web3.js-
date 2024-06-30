@@ -18,7 +18,7 @@ import fs from 'fs';
 import { bool } from "@coral-xyz/borsh";
 const KEYS_FOLDER = __dirname + "/.keys";
 const SLIPPAGE_BASIS_POINTS = 100n;
-const buy_amount = 2.5; //keep it to .1 sol per launch 
+const buy_amount = 2.0; //keep it to .1 sol per launch 
 import {return_fake_metadata} from './fake_meta_maker';
 import {main_img_generator} from './img_maker';
 import { features } from "process";
@@ -86,7 +86,7 @@ const deploy_and_buy_token = async (token_name:string,token_symbol:string,token_
       BigInt(buy_amount * LAMPORTS_PER_SOL),
       SLIPPAGE_BASIS_POINTS,
       {
-        unitLimit: 250000,
+        unitLimit: 350000,
         unitPrice: 250000,
       },
     );
@@ -213,22 +213,26 @@ async function sol_hops(deployer:Keypair,inital_wallet:Keypair): Promise<void>{
     const wallet = await generateRandomWallet();
     wallets.push(wallet);
   }
-  sleep(0.2);
+  sleep(0.1);
   // Transfer through each wallet
   for (let i = 0; i < hops - 1; i++) {
     try{
-    sleep(0.1);
-    const amount = (await connection.getBalance(wallets[i].keypair.publicKey)) - fee; // leave a small balance for fees
-    await retryTransaction(wallets[i].keypair, wallets[i + 1].keypair, amount);
+      sleep(0.5);//add logic to onyl pass it on if the balance is sufficient
+      const balance = await connection.getBalance(wallets[i].keypair.publicKey);
+      const amount = Math.floor(balance - fee); // leave a small balance for fees
+      console.log(`Transferring ${amount} lamports from wallet ${i} to wallet ${i + 1}`);
+      await retryTransaction(wallets[i].keypair, wallets[i + 1].keypair, amount);
     }catch(error){
       console.error('Transfer error in hops occured');
       throw error;
     }
   }
-  sleep(0.1);
+  sleep(0.5);
   try {
     // Transfer to the final wallet
-    const amount = (await connection.getBalance(wallets[hops - 1].keypair.publicKey)) - fee; // leave a small balance for fees
+    const balance = await connection.getBalance(wallets[hops - 1].keypair.publicKey);
+    const amount = Math.floor(balance - fee); // leave a small balance for fees
+    console.log(`Transferring ${amount} lamports from final hop to final wallet`);
     await retryTransaction(wallets[hops - 1].keypair, finalWallet, amount);
   }catch(error){
     console.error('Transfer error in hops occured');
@@ -309,8 +313,8 @@ const sellTokens = async (tempdeployer:Keypair, mint:Keypair) => {
       BigInt(currentSPLBalance * Math.pow(10, DEFAULT_DECIMALS)),
       SLIPPAGE_BASIS_POINTS,
       {
-        unitLimit: 2500000,//these values need to be high
-        unitPrice: 2500000,
+        unitLimit: 60000000,//these values need to be high
+        unitPrice: 85000,
       }
     );
 
@@ -372,7 +376,7 @@ async function main(): Promise<void> {
     addressDB.addAddress(temp_deployer.publicKey.toString(), bs58.encode(temp_deployer.secretKey).toString());
     temp_initial = await getTempInitialWallet();//pre defined address
     console.log('Waiting for deposit confirmation to initial wallet: ',temp_initial.publicKey.toString());
-    await withdraw(temp_initial.publicKey.toString(),'3');
+    await withdraw(temp_initial.publicKey.toString(),'2.5');
     var tries = 0;
     while ((await connection.getBalance(temp_initial.publicKey))<0.1){
       try{
@@ -412,10 +416,11 @@ async function main(): Promise<void> {
     await main_img_generator(keyword_for_img);
     const counterFilePath = path.join(__dirname, 'counter.json');
     const counterData = JSON.parse(fs.readFileSync(counterFilePath, 'utf-8'));
-    const currentNumber = counterData.counter-1;//minus 1 as it was incremented
+    const currentNumber = counterData.counter;
     const token_logo_filepath = `example/basic/shitcoin_images/shitcoin_image_${currentNumber}.png`
     console.log('create token logo: ',token_logo_filepath);
     let temp_token = Keypair.generate();
+    await sleep(1);
     /*console.log('generating token addess to end with pump');
     while (!temp_token.publicKey.toBase58().endsWith("pump")){
       temp_token = Keypair.generate();
@@ -435,7 +440,7 @@ async function main(): Promise<void> {
     if (currentSPLBalance != null){
       if (currentSPLBalance<1000000){
         var fee:number = 0.001*LAMPORTS_PER_SOL; 
-        const current_sol_balance  = (await connection.getBalance(temp_deployer.publicKey)) - fee;
+        const current_sol_balance  =  Math.floor((await connection.getBalance(temp_deployer.publicKey)) - fee);
         console.log('curent sol balance after the sell is: ',current_sol_balance);
         console.log('Sending back to cex and waiting.....');
         await transferSol(connection, temp_deployer, cex_deposit_address, current_sol_balance);

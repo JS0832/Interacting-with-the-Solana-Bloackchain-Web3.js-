@@ -14,11 +14,11 @@ import { PumpFunSDK } from "../../src";
 import NodeWallet from "@coral-xyz/anchor/dist/cjs/nodewallet";
 import { AnchorProvider } from "@coral-xyz/anchor";
 import {countSPLTokenTransactions} from './tx_counter';
-
+import {printBarChart} from './bar_chart';
 
 let ExpiredTokenArray: Array<string> = [];
 class ExpiringTokenQueue{
-    private queue: { items: string[], expiration: number }[] = [];
+    private queue: { items: string[], expiration: number}[] = [];
     private expirationTime: number;
     private intervalId: NodeJS.Timeout;
 
@@ -28,8 +28,9 @@ class ExpiringTokenQueue{
     }
 
     addItems(items: string[]): void {
-        const expiration = Date.now() + this.expirationTime;
-        this.queue.push({ items, expiration });
+        const startTime = Date.now();
+        const expiration = startTime + this.expirationTime;
+        this.queue.push({items,expiration});
     }
 
     getItems(): string[][] {
@@ -62,9 +63,12 @@ class ExpiringTokenQueue{
     }
 }
 
+//need to add tranation per minute too
+
+
 const tokenQueue = new ExpiringTokenQueue(8); // 25 minutes expiration time
 let PastTokenArray: Array<string> = [];
-let tx_count_queue:[string,number,string][] = []; //array of token adresses ordered form most to least based on tx count
+let tx_count_queue:[string,number,string,number][] = []; //array of token adresses ordered form most to least based on tx count
 async function tokenListener(){
   dotenv.config();
   if (!process.env.HELIUS_RPC_URL) {
@@ -89,13 +93,13 @@ async function tokenListener(){
     if (PastTokenArray.indexOf(event.mint.toString())==-1){//not in the past tokens array yet
         PastTokenArray.push(event.mint.toString());
         //console.log("NEW TOKEN: ", event.name);
-        tokenQueue.addItems([event.mint.toString(), event.name.toString(),event.symbol.toString()]);//last item will be the tx count in string form
+        tokenQueue.addItems([event.mint.toString(), event.name.toString(),event.symbol.toString(),Date.now().toString()]);//last item will be the tx count in string form
         //console.log(tokenQueue.getItems());
     }
   });
 };
 
-function findElement(arr: [any, any, any][], target: any): number | null {
+function findElement(arr: [any, any, any,any][], target: any): number | null {
     for (let i = 0; i < arr.length; i++) {
         if (arr[i].includes(target)) {
             return i;
@@ -117,15 +121,17 @@ function remove_expired_from_tx_count_queue(){
     };
 };
 
-async function tx_counter() {
-    //we can also get total tx count and show percentage each token takes up f the total (nice visual representation)
+function getTPM(initial_time:number,tx_count:number){
+    return Math.floor((tx_count/(Date.now() - initial_time))*60000);
+};
 
-    // need like max 40 items and remove it from queue if expired.
+async function tx_counter() {
     while(true){
         const current_tokens:string[][] = tokenQueue.getItems();
         if (current_tokens.length>0){
             for (let i = 0; i < current_tokens.length; i++) {
                 var token_ca:string = current_tokens[i][0];
+                var token_start_time:number = parseInt(current_tokens[i][3]);
                 var position = findElement(tx_count_queue, token_ca);
                 if (position!== null) {
                     var last_sig = tx_count_queue[position][2];
@@ -133,12 +139,15 @@ async function tx_counter() {
                     var tx_count = transaction_result.sig_amount;
                     var latest_sig = transaction_result.latestSignature;
                     tx_count_queue[position][1] += tx_count;
+                    var tps = getTPM(tx_count_queue[position][1],tx_count);
                     tx_count_queue[position][2] = latest_sig;
+                    tx_count_queue[position][3] = tps;
                 } else {
                     var transaction_result = await countSPLTokenTransactions(token_ca,"");
                     var tx_count = transaction_result.sig_amount;
                     var latest_sig = transaction_result.latestSignature;
-                    tx_count_queue.push([token_ca,tx_count,latest_sig]);
+                    var tps = getTPM(token_start_time,tx_count);
+                    tx_count_queue.push([token_ca,tx_count,latest_sig,tps]);
                 };
             };
             remove_expired_from_tx_count_queue();
@@ -146,10 +155,10 @@ async function tx_counter() {
         };
         //CHECK IF ANY OF THE TOKENS ARENT IN THE CURRENT TOKENS IF SO THEN THAT MENAS IT EXPIRED.
         await new Promise((resolve) => setTimeout(resolve, 100));
-        console.log(tx_count_queue);
+        //console.log(tx_count_queue);
+        printBarChart(tx_count_queue);
     };
 }
-
 
 async function runConcurrently() {
     await Promise.all([tokenListener(), tx_counter()]);

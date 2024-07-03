@@ -64,7 +64,7 @@ class ExpiringTokenQueue{
 
 const tokenQueue = new ExpiringTokenQueue(8); // 25 minutes expiration time
 let PastTokenArray: Array<string> = [];
-let tx_count_queue:[string,number][] = []; //array of token adresses ordered form most to least based on tx count
+let tx_count_queue:[string,number,string][] = []; //array of token adresses ordered form most to least based on tx count
 async function tokenListener(){
   dotenv.config();
   if (!process.env.HELIUS_RPC_URL) {
@@ -95,7 +95,7 @@ async function tokenListener(){
   });
 };
 
-function findElement(arr: [any, any][], target: any): number | null {
+function findElement(arr: [any, any, any][], target: any): number | null {
     for (let i = 0; i < arr.length; i++) {
         if (arr[i].includes(target)) {
             return i;
@@ -128,11 +128,17 @@ async function tx_counter() {
                 var token_ca:string = current_tokens[i][0];
                 var position = findElement(tx_count_queue, token_ca);
                 if (position!== null) {
-                    var tx_count = await countSPLTokenTransactions(token_ca);
-                    tx_count_queue[position][1] = tx_count;
+                    var last_sig = tx_count_queue[position][2];
+                    var transaction_result = await countSPLTokenTransactions(token_ca,last_sig);
+                    var tx_count = transaction_result.sig_amount;
+                    var latest_sig = transaction_result.latestSignature;
+                    tx_count_queue[position][1] += tx_count;
+                    tx_count_queue[position][2] = latest_sig;
                 } else {
-                    var tx_count = await countSPLTokenTransactions(token_ca);//calculate tx count and then append it.
-                    tx_count_queue.push([token_ca,tx_count]);
+                    var transaction_result = await countSPLTokenTransactions(token_ca,"");
+                    var tx_count = transaction_result.sig_amount;
+                    var latest_sig = transaction_result.latestSignature;
+                    tx_count_queue.push([token_ca,tx_count,latest_sig]);
                 };
             };
             remove_expired_from_tx_count_queue();

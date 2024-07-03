@@ -3,8 +3,7 @@ import dotenv from "dotenv";
 dotenv.config();
 const connection = new Connection(process.env.HELIUS_RPC_URL || "");
 
-export async function countSPLTokenTransactions(tokenMintAddress: string) {
-    //imporvement will be reading after the latest signature
+export async function countSPLTokenTransactions(tokenMintAddress: string, lastCheckedSignature?: string) {
     // Token Mint Address
     const tokenMint = new PublicKey(tokenMintAddress);
 
@@ -12,6 +11,11 @@ export async function countSPLTokenTransactions(tokenMintAddress: string) {
     let options: ConfirmedSignaturesForAddress2Options = {
         limit: 1000 // Adjust the limit as necessary
     };
+
+    // If there is a valid last checked signature, set it in the options
+    if (lastCheckedSignature && lastCheckedSignature.trim() !== "") {
+        options.before = lastCheckedSignature;
+    }
 
     // This is where we'll store all the signatures
     let allSignatures: string[] = [];
@@ -29,13 +33,14 @@ export async function countSPLTokenTransactions(tokenMintAddress: string) {
         allSignatures.push(...signatures.map(sigInfo => sigInfo.signature));
 
         // Update options to fetch the next batch of signatures
-        options = {
-            ...options,
-            before: signatures[signatures.length - 1].signature
-        };
+        options.before = signatures[signatures.length - 1].signature;
     }
 
-    //console.log(`Total number of transactions for token ${tokenMintAddress}: ${allSignatures.length}`);
-    return allSignatures.length;
+    // If no new signatures are found, use the original lastCheckedSignature, otherwise use the latest found
+    const latestSignature = allSignatures.length > 0 ? allSignatures[0] : (lastCheckedSignature || "");
+
+    // Return the count of new transactions and the latest checked signature
+    var sig_amount = allSignatures.length;
+    return {sig_amount, latestSignature};
 }
 

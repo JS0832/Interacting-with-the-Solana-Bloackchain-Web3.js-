@@ -39,7 +39,7 @@ function generateAndStoreWallets() {
             VALUES (?, ?)
         `);
 
-        for (let i = 0; i < 20; i++) {
+        for (let i = 0; i < 100; i++) {
             const keypair = Keypair.generate();
             const publicKey = keypair.publicKey.toBase58().toString();
             const privateKey = bs58.encode(keypair.secretKey).toString();

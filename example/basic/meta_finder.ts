@@ -1,13 +1,3 @@
-//have a token sniffer
-//event listener and place every token on a 15min queue
-//count number of transacrions the token gets
-//order tokens with most transactions per 15 min
-
-//check the common theme/pattern between them if there is any
-
-
-//develop a token that best matches the theme (meta) but has a twist on it ( brute force strategy checkin against the exisitng past tokens)
-
 import dotenv from "dotenv";
 import { Connection, Keypair } from "@solana/web3.js";
 import { PumpFunSDK } from "../../src";
@@ -122,7 +112,7 @@ function remove_expired_from_tx_count_queue(){
 };
 
 function getTPM(initial_time:number,tx_count:number){
-    return Math.floor((tx_count/(Date.now() - initial_time))*60000);
+    return Math.floor((tx_count/(Date.now() - initial_time))*1000000);
 };
 
 async function tx_counter() {
@@ -134,13 +124,10 @@ async function tx_counter() {
                 var token_start_time:number = parseInt(current_tokens[i][3]);
                 var position = findElement(tx_count_queue, token_ca);
                 if (position!== null) {
-                    var last_sig = tx_count_queue[position][2];
-                    var transaction_result = await countSPLTokenTransactions(token_ca,last_sig);
+                    var transaction_result = await countSPLTokenTransactions(token_ca,"");
                     var tx_count = transaction_result.sig_amount;
-                    var latest_sig = transaction_result.latestSignature;
-                    tx_count_queue[position][1] += tx_count;
+                    tx_count_queue[position][1] = tx_count;
                     var tps = getTPM(tx_count_queue[position][1],tx_count);
-                    tx_count_queue[position][2] = latest_sig;
                     tx_count_queue[position][3] = tps;
                 } else {
                     var transaction_result = await countSPLTokenTransactions(token_ca,"");

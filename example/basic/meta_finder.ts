@@ -3,12 +3,13 @@ import { Connection, Keypair } from "@solana/web3.js";
 import { PumpFunSDK } from "../../src";
 import NodeWallet from "@coral-xyz/anchor/dist/cjs/nodewallet";
 import { AnchorProvider } from "@coral-xyz/anchor";
-import {countSPLTokenTransactions} from './tx_counter';
-import {printBarChart} from './bar_chart';
+import { countSPLTokenTransactions } from './tx_counter';
+import { printBarChart } from './bar_chart';
 
 let ExpiredTokenArray: Array<string> = [];
-class ExpiringTokenQueue{
-    private queue: { items: string[], expiration: number}[] = [];
+
+class ExpiringTokenQueue {
+    private queue: { items: string[], expiration: number }[] = [];
     private expirationTime: number;
     private intervalId: NodeJS.Timeout;
 
@@ -20,7 +21,7 @@ class ExpiringTokenQueue{
     addItems(items: string[]): void {
         const startTime = Date.now();
         const expiration = startTime + this.expirationTime;
-        this.queue.push({items,expiration});
+        this.queue.push({ items, expiration });
     }
 
     getItems(): string[][] {
@@ -53,43 +54,41 @@ class ExpiringTokenQueue{
     }
 }
 
-//need to add tranation per minute too
+// Need to add transaction per minute too
 
-
-const tokenQueue = new ExpiringTokenQueue(8); // 25 minutes expiration time
+const tokenQueue = new ExpiringTokenQueue(8); // 8 minutes expiration time
 let PastTokenArray: Array<string> = [];
-let tx_count_queue:[string,number,string,number][] = []; //array of token adresses ordered form most to least based on tx count
-async function tokenListener(){
-  dotenv.config();
-  if (!process.env.HELIUS_RPC_URL) {
-    console.error("Please set HELIUS_RPC_URL in .env file");
-    console.error(
-      "Example: HELIUS_RPC_URL=https://mainnet.helius-rpc.com/?api-key=<your api key>"
-    );
-    console.error("Get one at: https://www.helius.dev");
-    return;
-  }
+let tx_count_queue: [string, number, string, number][] = []; // array of token addresses ordered from most to least based on tx count
 
-  let connection = new Connection(process.env.HELIUS_RPC_URL || "");
-
-  let wallet = new NodeWallet(new Keypair()); //note this is not used
-  const provider = new AnchorProvider(connection, wallet, {
-    commitment: "finalized",
-  });
-
-  let sdk = new PumpFunSDK(provider);
-
-  let createEvent = sdk.addEventListener("createEvent", (event) => {
-    if (PastTokenArray.indexOf(event.mint.toString())==-1){//not in the past tokens array yet
-        PastTokenArray.push(event.mint.toString());
-        //console.log("NEW TOKEN: ", event.name);
-        tokenQueue.addItems([event.mint.toString(), event.name.toString(),event.symbol.toString(),Date.now().toString()]);//last item will be the tx count in string form
-        //console.log(tokenQueue.getItems());
+async function tokenListener() {
+    dotenv.config();
+    if (!process.env.HELIUS_RPC_URL) {
+        console.error("Please set HELIUS_RPC_URL in .env file");
+        console.error(
+            "Example: HELIUS_RPC_URL=https://mainnet.helius-rpc.com/?api-key=<your api key>"
+        );
+        console.error("Get one at: https://www.helius.dev");
+        return;
     }
-  });
-};
 
-function findElement(arr: [any, any, any,any][], target: any): number | null {
+    let connection = new Connection(process.env.HELIUS_RPC_URL || "");
+
+    let wallet = new NodeWallet(new Keypair()); // Note this is not used
+    const provider = new AnchorProvider(connection, wallet, {
+        commitment: "finalized",
+    });
+
+    let sdk = new PumpFunSDK(provider);
+
+    let createEvent = sdk.addEventListener("createEvent", (event) => {
+        if (PastTokenArray.indexOf(event.mint.toString()) == -1) { // Not in the past tokens array yet
+            PastTokenArray.push(event.mint.toString());
+            tokenQueue.addItems([event.mint.toString(), event.name.toString(), event.symbol.toString(), Date.now().toString()]); // Last item will be the tx count in string form
+        }
+    });
+}
+
+function findElement(arr: [any, any, any, any][], target: any): number | null {
     for (let i = 0; i < arr.length; i++) {
         if (arr[i].includes(target)) {
             return i;
@@ -98,53 +97,50 @@ function findElement(arr: [any, any, any,any][], target: any): number | null {
     return null;
 }
 
-
-function remove_expired_from_tx_count_queue(){
-    
+function remove_expired_from_tx_count_queue() {
     for (let i = 0; i < ExpiredTokenArray.length; i++) {
-        var ca_to_be_remvoed = ExpiredTokenArray[i];
-        var position = findElement(tx_count_queue, ca_to_be_remvoed);
-        if (position!== null) {
+        var ca_to_be_removed = ExpiredTokenArray[i];
+        var position = findElement(tx_count_queue, ca_to_be_removed);
+        if (position !== null) {
             ExpiredTokenArray = ExpiredTokenArray.filter((_, index) => index !== i);
             tx_count_queue = tx_count_queue.filter((_, index) => index !== position);
-        };
-    };
-};
+        }
+    }
+}
 
-function getTPM(initial_time:number,tx_count:number){
-    return Math.floor((tx_count/(Date.now() - initial_time))*1000000);
-};
+function getTPM(initial_time: number, tx_count: number) {
+    return Math.floor((tx_count / (Date.now() - initial_time)) * 1000000);
+}
 
 async function tx_counter() {
-    while(true){
-        const current_tokens:string[][] = tokenQueue.getItems();
-        if (current_tokens.length>0){
-            for (let i = 0; i < current_tokens.length; i++) {
-                var token_ca:string = current_tokens[i][0];
-                var token_start_time:number = parseInt(current_tokens[i][3]);
-                var position = findElement(tx_count_queue, token_ca);
-                if (position!== null) {
-                    var transaction_result = await countSPLTokenTransactions(token_ca,"");
-                    var tx_count = transaction_result.sig_amount;
+    while (true) {
+        const current_tokens: string[][] = tokenQueue.getItems();
+        if (current_tokens.length > 0) {
+            const promises = current_tokens.map(async (token) => {
+                const token_ca: string = token[0];
+                const token_start_time: number = parseInt(token[3]);
+                const position = findElement(tx_count_queue, token_ca);
+                const transaction_result = await countSPLTokenTransactions(token_ca, "");
+                const tx_count = transaction_result.sig_amount;
+                const latest_sig = transaction_result.latestSignature;
+                const tps = getTPM(token_start_time, tx_count);
+
+                if (position !== null) {
                     tx_count_queue[position][1] = tx_count;
-                    var tps = getTPM(tx_count_queue[position][1],tx_count);
                     tx_count_queue[position][3] = tps;
                 } else {
-                    var transaction_result = await countSPLTokenTransactions(token_ca,"");
-                    var tx_count = transaction_result.sig_amount;
-                    var latest_sig = transaction_result.latestSignature;
-                    var tps = getTPM(token_start_time,tx_count);
-                    tx_count_queue.push([token_ca,tx_count,latest_sig,tps]);
-                };
-            };
+                    tx_count_queue.push([token_ca, tx_count, latest_sig, tps]);
+                }
+            });
+
+            await Promise.all(promises);
             remove_expired_from_tx_count_queue();
             tx_count_queue.sort((a, b) => a[1] - b[1]);
-        };
-        //CHECK IF ANY OF THE TOKENS ARENT IN THE CURRENT TOKENS IF SO THEN THAT MENAS IT EXPIRED.
+        }
+
         await new Promise((resolve) => setTimeout(resolve, 100));
-        //console.log(tx_count_queue);
         printBarChart(tx_count_queue);
-    };
+    }
 }
 
 async function runConcurrently() {
@@ -153,7 +149,3 @@ async function runConcurrently() {
 
 // Call the function to run both async functions concurrently
 runConcurrently();
-
-//I NEED SOMETHIGN TO COUNT TRANSACTIONS OF EACH TOKEN AND STORE IT IN THE QUEUE 
-
-

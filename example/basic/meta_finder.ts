@@ -57,6 +57,7 @@ class ExpiringTokenQueue {
 // Need to add transaction per minute too
 
 const tokenQueue = new ExpiringTokenQueue(5); // 8 minutes expiration time
+const tokensWithDemandQueue = new ExpiringTokenQueue(60); //This is the queue that keeps tokens that shown demand within their first 5 minutes of trading.
 let PastTokenArray: Array<string> = [];
 let tx_count_queue: [string, number, string, number,string,string][] = []; // array of token addresses ordered from most to least based on tx count
 
@@ -104,7 +105,7 @@ function remove_expired_from_tx_count_queue() {//here we want to add all tokens 
         var position = findElement(tx_count_queue, ca_to_be_removed);
         if (position !== null) {
             var topfour = current_token_amount-4;
-            if (position >=(topfour) && topfour > 0){ //within top 5
+            if (position >=(topfour) && topfour > 0){ //within top 4
                 addItem(ca_to_be_removed,tx_count_queue[position][4],tx_count_queue[position][5],tx_count_queue[position][3]);
             };
             ExpiredTokenArray = ExpiredTokenArray.filter((_, index) => index !== i);
@@ -125,17 +126,25 @@ async function tx_counter() {
                 const token_ca: string = token[0];
                 const token_start_time: number = parseInt(token[3]);
                 const position = findElement(tx_count_queue, token_ca);
-                const transaction_result = await countSPLTokenTransactions(token_ca, "");
-                const tx_count = transaction_result.sig_amount;
-                const latest_sig = transaction_result.latestSignature;
-                const tps = getTPM(token_start_time, tx_count);
-                if (position !== null) {
-                    tx_count_queue[position][1] = tx_count;
-                    tx_count_queue[position][3] = tps;
-                } else {
-                    const token_ticker = token[2];
-                    const token_name = token[1];
-                    tx_count_queue.push([token_ca, tx_count, latest_sig, tps,token_ticker,token_name]);
+                try{
+                    if (position !== null) {
+                        var time_alive = (Date.now() - token_start_time)/1000;
+                        var tx_count = 0;
+                        var tps = 0;
+                        if (time_alive > 20){
+                            const transaction_result = await countSPLTokenTransactions(token_ca, "");
+                            tx_count = transaction_result.sig_amount;
+                            tps = getTPM(token_start_time, tx_count);
+                        };
+                        tx_count_queue[position][1] = tx_count;
+                        tx_count_queue[position][3] = tps;
+                    } else {
+                        const token_ticker = token[2];
+                        const token_name = token[1];
+                        tx_count_queue.push([token_ca, 0, "", 0,token_ticker,token_name]);
+                    }
+                }catch( error){
+                    console.log("error");
                 }
             });
 

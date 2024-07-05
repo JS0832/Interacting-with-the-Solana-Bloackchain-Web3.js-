@@ -39,8 +39,6 @@ export async function countSPLTokenTransactions(tokenMintAddress: string, lastCh
         }
     } catch (error) {
         if (error instanceof TypeError && error.message.includes("fetch failed")) {
-            console.error("Fetch failed while retrieving signatures:", error);
-            // Handle the error, for example, by returning a partial result or rethrowing the error
             throw new Error("Failed to fetch signatures from the Solana network.");
         } else {
             // Rethrow other unexpected errors

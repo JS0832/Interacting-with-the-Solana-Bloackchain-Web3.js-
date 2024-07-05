@@ -6,6 +6,7 @@ import { AnchorProvider } from "@coral-xyz/anchor";
 import { countSPLTokenTransactions } from './tx_counter';
 import { printBarChart } from './bar_chart';
 import {addItem,printtable} from './fancy_table';
+import {allSubstrings,countAndSortStrings} from './string_processor';
 let ExpiredTokenArray: Array<string> = [];
 
 class ExpiringTokenQueue {
@@ -57,7 +58,8 @@ class ExpiringTokenQueue {
 // Need to add transaction per minute too
 
 const tokenQueue = new ExpiringTokenQueue(5); // 8 minutes expiration time
-const tokensWithDemandQueue = new ExpiringTokenQueue(60); //This is the queue that keeps tokens that shown demand within their first 5 minutes of trading.
+const tokensWithDemandQueue = new ExpiringTokenQueue(90); //This is the queue that keeps tokens that shown demand within their first 5 minutes of trading.
+const nameSubstrings = new ExpiringTokenQueue(90);
 let PastTokenArray: Array<string> = [];
 let tx_count_queue: [string, number, string, number,string,string][] = []; // array of token addresses ordered from most to least based on tx count
 
@@ -98,15 +100,43 @@ function findElement(arr: [any, any, any, any,any,any][], target: any): number |
     return null;
 }
 
+function groupAndProcessSubstrings(){
+    const current_substrings: string[][] = nameSubstrings.getItems();
+    if (current_substrings.length > 0) {
+        let concatenatedString: string[] = current_substrings.flat();
+        console.log(countAndSortStrings(concatenatedString));
+    };
+}
+
+function getCurrentKeyWord():string{
+    const current_substrings: string[][] = nameSubstrings.getItems();
+    if (current_substrings.length > 0) {
+        let concatenatedString: string[] = current_substrings.flat();
+        var result:[string,number][] = countAndSortStrings(concatenatedString);
+        if (result.length > 0){
+            var top_result = result[0];
+            if(top_result[1]>=4){
+                return top_result[0];
+            };
+        };
+    };
+    return "None";
+}
+
+
+
 function remove_expired_from_tx_count_queue() {//here we want to add all tokens that are being removed but ended up in the top 5-10 based on the SN value
     for (let i = 0; i < ExpiredTokenArray.length; i++) {
         var current_token_amount = tx_count_queue.length-1;//adjusted for 0 index based array 
         var ca_to_be_removed = ExpiredTokenArray[i];
         var position = findElement(tx_count_queue, ca_to_be_removed);
+        var minSNcount = 500;//ro be tweaked (migth make this more dynami)
         if (position !== null) {
             var topfour = current_token_amount-4;
-            if (position >=(topfour) && topfour > 0){ //within top 4
+            if (position >=(topfour) && topfour > 0 &&tx_count_queue[position][3]>=minSNcount){ //within top 4 ( migth also filter by minimum SN number too tweak later)
                 addItem(ca_to_be_removed,tx_count_queue[position][4],tx_count_queue[position][5],tx_count_queue[position][3]);
+                tokensWithDemandQueue.addItems([ca_to_be_removed,tx_count_queue[position][4],tx_count_queue[position][5],tx_count_queue[position][3].toString()]);//adding to the queue of tokens that shown demand
+                nameSubstrings.addItems(allSubstrings(tx_count_queue[position][5],3));
             };
             ExpiredTokenArray = ExpiredTokenArray.filter((_, index) => index !== i);
             tx_count_queue = tx_count_queue.filter((_, index) => index !== position);
@@ -144,7 +174,7 @@ async function tx_counter() {
                         tx_count_queue.push([token_ca, 0, "", 0,token_ticker,token_name]);
                     }
                 }catch( error){
-                    console.log("error");
+                    console.log("Tx parse error...will retry");
                 }
             });
 
@@ -156,6 +186,9 @@ async function tx_counter() {
         console.clear();
         printBarChart(tx_count_queue);
         printtable();
+        groupAndProcessSubstrings();
+        var res = getCurrentKeyWord();
+        console.log(`Current key word for Meta: ${res}`);
     }
 }
 
@@ -165,3 +198,8 @@ async function runConcurrently() {
 
 // Call the function to run both async functions concurrently
 runConcurrently();
+
+//now i want a past tokens list so when releasing a token it wont release the same name again 
+//also helpt o make new name by ignoring pas options for example it can use suepr meta twice but it cant be suerp cat twice you know whay you mean
+
+//for now it will onyl make a token by picking the key phsae from most common substring and it has to occour at least 3 times.

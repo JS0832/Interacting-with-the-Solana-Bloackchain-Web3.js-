@@ -1,9 +1,9 @@
-function calculatePercentages(data: [string, number,string,number][]): [string, number,number,number][] {
+function calculatePercentages(data: [string, number,string,number,string,string][]): [string, number,number,number][] {
     const totalScore = data.reduce((sum, [, score]) => sum + score, 0);
     return data.map(([name, score,tx,tpm]) => [name, (score / totalScore) * 100,score,tpm]);
 }
 
-export function printBarChart(data: [string,number,string,number][]): void {
+export function printBarChart(data: [string,number,string,number,string,string][]): void {
     const percentages = calculatePercentages(data);
 
     // Find the longest name for formatting

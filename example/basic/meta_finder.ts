@@ -5,7 +5,7 @@ import NodeWallet from "@coral-xyz/anchor/dist/cjs/nodewallet";
 import { AnchorProvider } from "@coral-xyz/anchor";
 import { countSPLTokenTransactions } from './tx_counter';
 import { printBarChart } from './bar_chart';
-
+import {addItem,printtable} from './fancy_table';
 let ExpiredTokenArray: Array<string> = [];
 
 class ExpiringTokenQueue {
@@ -56,9 +56,9 @@ class ExpiringTokenQueue {
 
 // Need to add transaction per minute too
 
-const tokenQueue = new ExpiringTokenQueue(8); // 8 minutes expiration time
+const tokenQueue = new ExpiringTokenQueue(5); // 8 minutes expiration time
 let PastTokenArray: Array<string> = [];
-let tx_count_queue: [string, number, string, number][] = []; // array of token addresses ordered from most to least based on tx count
+let tx_count_queue: [string, number, string, number,string,string][] = []; // array of token addresses ordered from most to least based on tx count
 
 async function tokenListener() {
     dotenv.config();
@@ -88,7 +88,7 @@ async function tokenListener() {
     });
 }
 
-function findElement(arr: [any, any, any, any][], target: any): number | null {
+function findElement(arr: [any, any, any, any,any,any][], target: any): number | null {
     for (let i = 0; i < arr.length; i++) {
         if (arr[i].includes(target)) {
             return i;
@@ -97,20 +97,25 @@ function findElement(arr: [any, any, any, any][], target: any): number | null {
     return null;
 }
 
-function remove_expired_from_tx_count_queue() {
+function remove_expired_from_tx_count_queue() {//here we want to add all tokens that are being removed but ended up in the top 5-10 based on the SN value
     for (let i = 0; i < ExpiredTokenArray.length; i++) {
+        var current_token_amount = tx_count_queue.length-1;//adjusted for 0 index based array 
         var ca_to_be_removed = ExpiredTokenArray[i];
         var position = findElement(tx_count_queue, ca_to_be_removed);
         if (position !== null) {
+            var topfour = current_token_amount-4;
+            if (position >=(topfour) && topfour > 0){ //within top 5
+                addItem(ca_to_be_removed,tx_count_queue[position][4],tx_count_queue[position][5],tx_count_queue[position][3]);
+            };
             ExpiredTokenArray = ExpiredTokenArray.filter((_, index) => index !== i);
             tx_count_queue = tx_count_queue.filter((_, index) => index !== position);
         }
     }
-}
+};
 
 function getTPM(initial_time: number, tx_count: number) {
     return Math.floor((tx_count / (Date.now() - initial_time)) * 1000000);
-}
+};
 
 async function tx_counter() {
     while (true) {
@@ -124,22 +129,24 @@ async function tx_counter() {
                 const tx_count = transaction_result.sig_amount;
                 const latest_sig = transaction_result.latestSignature;
                 const tps = getTPM(token_start_time, tx_count);
-
                 if (position !== null) {
                     tx_count_queue[position][1] = tx_count;
                     tx_count_queue[position][3] = tps;
                 } else {
-                    tx_count_queue.push([token_ca, tx_count, latest_sig, tps]);
+                    const token_ticker = token[2];
+                    const token_name = token[1];
+                    tx_count_queue.push([token_ca, tx_count, latest_sig, tps,token_ticker,token_name]);
                 }
             });
 
             await Promise.all(promises);
             remove_expired_from_tx_count_queue();
-            tx_count_queue.sort((a, b) => a[1] - b[1]);
+            tx_count_queue.sort((a, b) => a[3] - b[3]);//1 is ordering by tx 3 is SN value
         }
-
         await new Promise((resolve) => setTimeout(resolve, 100));
+        console.clear();
         printBarChart(tx_count_queue);
+        printtable();
     }
 }
 

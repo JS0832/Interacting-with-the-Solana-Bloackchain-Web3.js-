@@ -63,5 +63,3 @@ export function generate_name_ticker(keyword:string): {coinName:string,ticker:st
   }
   return null;
 }
-
-console.log(generate_name_ticker('MOM'));

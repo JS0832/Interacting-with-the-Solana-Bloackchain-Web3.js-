@@ -9,6 +9,7 @@ import {addItem,printtable} from './fancy_table';
 import {allSubstrings,countAndSortStrings} from './string_processor';
 import {generate_name_ticker} from './ai_metadata';
 import {modify_telegram} from './telegram_controls';
+import {determine_profit} from './profit_check';
 let ExpiredTokenArray: Array<string> = [];
 
 class ExpiringTokenQueue {
@@ -230,7 +231,8 @@ async function indianTokenEngine(){//main code to run the new token
         };
         if (launch_token){
             var description = '';
-            await modify_telegram(chat_id,description,coinName);
+            await modify_telegram(chat_id,description,coinName);//possibel error handling?
+            //need to change logo via telethon and real accoutn not bot.
             //need to prepare the tg with the name  and logo.
             //deploy the token 
             //write automated commests both in group and the chat

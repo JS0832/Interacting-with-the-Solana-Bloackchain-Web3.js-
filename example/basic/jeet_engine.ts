@@ -8,6 +8,7 @@ import { printBarChart } from './bar_chart';
 import {addItem,printtable} from './fancy_table';
 import {allSubstrings,countAndSortStrings} from './string_processor';
 import {generate_name_ticker} from './ai_metadata';
+import {modify_telegram} from './telegram_controls';
 let ExpiredTokenArray: Array<string> = [];
 
 class ExpiringTokenQueue {
@@ -198,6 +199,49 @@ async function tx_counter() {
         };
     }
 }
+
+function delay(minutes: number) {
+    return new Promise(resolve => setTimeout(resolve, minutes * 60 * 1000));
+}
+
+const ActiveJeetToken = new ExpiringTokenQueue(20); // each token will haev amax timeout fo 20 min until its jeeeted
+//techncically i could use this to handle many tokens at same time
+async function indianTokenEngine(){//main code to run the new token
+    const launch_time = Date.now()/(1000*60); //in minutes
+    const check_interval = 30;
+    const take_profit_threshold = 0.25; //SOL
+    const chat_id = -1002187221529; //to be improved later
+    while(true){//for now just one token at a time but this can be changed later I guess
+        //const currentJeetTokens: string[][] = tokenQueue.getItems();
+        var res = getCurrentKeyWord();
+        var  coinName = '';
+        var ticker = '';
+        var launch_token = false;
+        console.log(`Current key word for Meta: ${res}`);
+        if (res != 'None'){
+            var meta_result = generate_name_ticker(res);
+            if (meta_result != null){
+                console.log(`Preparing to launch the token: ${meta_result.coinName} ${meta_result.ticker}`);
+                coinName = meta_result.coinName;
+                ticker = meta_result.ticker;
+                launch_token = true;
+                //still need desc and img to be ready.
+            }
+        };
+        if (launch_token){
+            var description = '';
+            await modify_telegram(chat_id,description,coinName);
+            //need to prepare the tg with the name  and logo.
+            //deploy the token 
+            //write automated commests both in group and the chat
+            //sense profit and jeet if its above that level.
+            
+        };
+        
+        await delay(20);
+    }
+
+};
 
 async function runConcurrently() {
     await Promise.all([tokenListener(), tx_counter()]);

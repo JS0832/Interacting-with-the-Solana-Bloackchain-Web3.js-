@@ -70,3 +70,4 @@ async function downloadImage(url: string, filePath: string): Promise<void> {
     }
 }
 
+main_img_generator('fast dog');

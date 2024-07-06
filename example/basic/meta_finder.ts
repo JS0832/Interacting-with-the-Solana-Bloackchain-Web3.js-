@@ -7,6 +7,7 @@ import { countSPLTokenTransactions } from './tx_counter';
 import { printBarChart } from './bar_chart';
 import {addItem,printtable} from './fancy_table';
 import {allSubstrings,countAndSortStrings} from './string_processor';
+import {generate_name_ticker} from './ai_metadata';
 let ExpiredTokenArray: Array<string> = [];
 
 class ExpiringTokenQueue {
@@ -189,6 +190,12 @@ async function tx_counter() {
         groupAndProcessSubstrings();
         var res = getCurrentKeyWord();
         console.log(`Current key word for Meta: ${res}`);
+        if (res != 'None'){
+            var meta_result = generate_name_ticker(res);
+            if (meta_result != null){
+                console.log(`potentinal toekn metadata: ${meta_result.coinName} ${meta_result.ticker}`);
+            }
+        };
     }
 }
 

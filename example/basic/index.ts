@@ -404,7 +404,7 @@ async function main(): Promise<void> {
     temp_initial = await getTempInitialWallet();//pre defined address
     console.log('Waiting for deposit confirmation to initial wallet: ',temp_initial.publicKey.toString());
     //await withdraw(temp_initial.publicKey.toString(),'2.25');
-    //const binance_res = await withdrawToBinance(temp_initial.publicKey.toString(),'1.5');
+    //const binance_res = await withdrawFromBinance(temp_initial.publicKey.toString(),'1.5');
     //console.log(binance_res);
     var tries = 0;
     while ((await connection.getBalance(temp_initial.publicKey))<0.1){

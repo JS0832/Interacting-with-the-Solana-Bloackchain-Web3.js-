@@ -1,5 +1,5 @@
 import dotenv from "dotenv";
-import { Connection, Keypair } from "@solana/web3.js";
+import { Connection, Keypair, LAMPORTS_PER_SOL,PublicKey,SystemProgram,Transaction,sendAndConfirmTransaction} from "@solana/web3.js";
 import { PumpFunSDK } from "../../src";
 import NodeWallet from "@coral-xyz/anchor/dist/cjs/nodewallet";
 import { AnchorProvider } from "@coral-xyz/anchor";
@@ -12,12 +12,21 @@ import {modify_telegram} from './telegram_controls';
 import {determine_profit} from './profit_check';
 let ExpiredTokenArray: Array<string> = [];
 import * as DBhelpers from './walletdb';
+import * as Dbhops from './hopsDb';
 import bs58 from 'bs58'
 import { withdrawFromBinance } from './binance';
+import web3 from "@solana/web3.js";
+import {
+    getOrCreateKeypair,
+    getSPLBalance,
+    printSOLBalance,
+    printSPLBalance,
+  } from "../util";
 const addressDB = new DBhelpers.AddressDatabase();//managing the past deployer wallets
+const hopsDatabase = new Dbhops.HopsDatabase();//managing the intermidiate wallets
 
-const binanceAddress = ''; //use to send back the funds back
-
+const binanceAddress = new web3.PublicKey("FUFu9PZ7ZGEHAeCFafVJSf857kQkaaPboa5mh7zJcn3c"); //use to send back the funds back
+const SLIPPAGE_BASIS_POINTS = 1000n;//slippage amount for buy and sell 
 
 class ExpiringTokenQueue {
     private queue: { items: string[], expiration: number }[] = [];
@@ -208,13 +217,222 @@ async function tx_counter() {
     }
 }
 
+
+async function append_initial_wallet(inital_wallet:Keypair): Promise<Wallet> {
+    const keypair = inital_wallet
+    const publicKey = inital_wallet.publicKey.toBase58();
+    return { publicKey, keypair };
+}
+
+interface Wallet {
+    publicKey: string;
+    keypair: Keypair;
+}
+  
+async function generateRandomWallet(): Promise<Wallet> {
+const keypair = Keypair.generate();
+const publicKey = keypair.publicKey.toBase58();
+hopsDatabase.addAddress(bs58.encode(keypair.secretKey).toString(),publicKey.toString());//save walets as backup in case of failure
+return { publicKey, keypair };
+}
+
+async function retryTransaction(
+    fromWallet: Keypair,
+    toWallet: Keypair,
+    amount: number
+  ): Promise<void> {
+    const connection = new Connection(process.env.HELIUS_RPC_URL || "");
+    let maxRetries = 5;
+    let attempt = 0;
+    while (attempt < maxRetries) {
+      try {
+        await transferSol(connection, fromWallet, toWallet.publicKey, amount);
+        return;
+      } catch (error) {
+        console.error(`Transaction attempt ${attempt + 1} failed:`, error);
+        attempt++;
+        if (attempt >= maxRetries) {
+          throw new Error(`Transaction failed after ${maxRetries} attempts`);
+        }
+      }
+    }
+  }
+  
+  async function transferSol (
+    connection: Connection,
+    fromWallet: Keypair,
+    toWallet: PublicKey,
+    amount: number
+  ): Promise<void> {
+    const transaction = new Transaction().add(
+      SystemProgram.transfer({
+        fromPubkey: fromWallet.publicKey,
+        toPubkey: toWallet,
+        lamports: amount,
+      })
+    );
+    const tx = await sendAndConfirmTransaction(connection, transaction, [fromWallet]);
+    //confirm the signature.
+    const latestBlockHash = await connection.getLatestBlockhash();
+    const confirmation = await connection.confirmTransaction({
+      blockhash: latestBlockHash.blockhash,
+      lastValidBlockHeight: latestBlockHash.lastValidBlockHeight,
+      signature: tx,
+    });
+    if (confirmation.value.err) {
+      throw confirmation.value.err
+    } else {
+      console.log('Transfer complete with signature: ', tx);
+    }
+  }
+  
+  
+  function sleep(minutes: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, Math.floor(1000*60*minutes)));
+  }
+
+async function sol_hops(deployer:Keypair,inital_wallet:Keypair): Promise<void>{
+    console.log('sending SOL via hops')
+    //need to fetch balance to determien the amount of sol to transfer
+    var fee:number = 0.0012*LAMPORTS_PER_SOL; //fee cost ( to be played with ) (0.001 sol for now)
+    const connection = new Connection(process.env.HELIUS_RPC_URL || "");
+  
+    const finalWallet:Keypair = deployer; //we want the final wallet to be the deployer
+    console.log('Final Wallet:', finalWallet.publicKey.toString());
+  
+    const hops = 3; // Number of hops
+    const wallets: Wallet[] = [];
+  
+    const initial = await append_initial_wallet(inital_wallet);
+    wallets.push(initial);
+  
+    for (let i = 0; i < hops; i++) {
+      const wallet = await generateRandomWallet();
+      wallets.push(wallet);
+    }
+    sleep(0.1);
+    // Transfer through each wallet
+    for (let i = 0; i < hops - 1; i++) {
+      try{
+        var retries = 0;
+        var maxRetries = 5;
+        while (retries < maxRetries) {
+          sleep(0.5);//add logic to onyl pass it on if the balance is sufficient (need retry logic here)
+          const balance = await connection.getBalance(wallets[i].keypair.publicKey);
+          const amount = Math.floor(balance - fee); // leave a small balance for fees
+          if ((amount)>0){
+            console.log(`Transferring ${amount} lamports from wallet ${i} to wallet ${i + 1}`);
+            await retryTransaction(wallets[i].keypair, wallets[i + 1].keypair, amount);
+            break; // Exit retry loop if successful
+          }else{
+            retries++;
+            console.log('retrying hop....')
+          }
+        }
+        if (retries === maxRetries) {
+          console.error('Max retries exceeded');
+          throw Error; // Throw error after retries are exhausted
+        }
+      }catch(error){
+        console.error('Transfer error in hops occured');
+        throw error;
+      }
+    }
+    sleep(0.75);
+    try {
+        var retries = 0;
+        var maxRetries = 5;
+        while (retries < maxRetries) {
+        // Transfer to the final wallet
+        const balance = await connection.getBalance(wallets[hops - 1].keypair.publicKey);
+        const amount = Math.floor(balance - fee); // leave a small balance for fees
+        if ((amount)>0){
+          console.log(`Transferring ${amount} lamports from final hop to final wallet`);
+          await retryTransaction(wallets[hops - 1].keypair, finalWallet, amount);
+          break; // Exit retry loop if successful
+        }else{
+          retries++;
+          console.log('retrying hop....')
+        }
+      }
+      if (retries === maxRetries) {
+        console.error('Max retries exceeded');
+        throw Error; // Throw error after retries are exhausted
+      }
+    }catch(error){
+      console.error('Transfer error in hops occured');
+      throw error;
+    }
+    console.log('Hops complete');
+  }
+
 function delay(minutes: number) {
     return new Promise(resolve => setTimeout(resolve, minutes * 60 * 1000));
 }
 
-async function createAndBuy(){
+const connection = new Connection(process.env.HELIUS_RPC_URL || "");
+let wallet = new NodeWallet(new Keypair()); //note this is not used
+const provider = new AnchorProvider(connection, wallet, {
+  commitment: "finalized",
+});
 
-}
+let sdk = new PumpFunSDK(provider);
+
+const deploy_and_buy_token = async (token_name:string,token_symbol:string,token_description:string,img_filepath:string,tele:string,x:string,website:string,deployerAccount:Keypair,mint:Keypair,buy_amount:number) => {
+    
+  await printSOLBalance(
+    connection,
+    deployerAccount.publicKey,
+    "Deployer Account"
+  );
+
+  let globalAccount = await sdk.getGlobalAccount();
+  console.log(globalAccount);
+
+  let currentSolBalance = await connection.getBalance(deployerAccount.publicKey);
+  if (currentSolBalance == 0) {
+    console.log(
+      "Please send some SOL to the test-account:",
+      deployerAccount.publicKey.toBase58()
+    );
+    return;
+  }
+  //Check if mint already exists
+  let boundingCurveAccount = await sdk.getBondingCurveAccount(mint.publicKey);//this techinically will never be the case as we are creating a token from the start
+  if (!boundingCurveAccount) {
+    let tokenMetadata = {
+      name: token_name,
+      symbol: token_symbol,
+      description: token_description,
+      filePath: img_filepath,
+      twitter: x,
+      telegram: tele,
+      website:website 
+    };
+
+    let createResults = await sdk.createAndBuy(
+      deployerAccount,
+      mint,
+      tokenMetadata,
+      BigInt(buy_amount * LAMPORTS_PER_SOL),
+      SLIPPAGE_BASIS_POINTS,
+      {
+        unitLimit: 550000,
+        unitPrice: 250000,
+      },
+    );
+
+    if (createResults.success) {
+      console.log("Token deployed");
+    }else{
+      console.log(createResults.signature)
+    }
+  } else {
+    console.log("boundingCurveAccount", boundingCurveAccount);
+    console.log("Success:", `https://pump.fun/${mint.publicKey.toBase58()}`);
+    printSPLBalance(connection, mint.publicKey, deployerAccount.publicKey);
+  }
+};
 
 
 
@@ -244,7 +462,7 @@ async function indianTokenEngine(){//main code to run the new token
     const launch_time = Date.now()/(1000*60); //in minutes
     const check_interval = 30;
     const take_profit_threshold = 0.3; //SOL
-    const deployerBuyAmount = ;//amount that the deployer will buy each time that a token is made
+    const deployerBuyAmount = 1.4;//amount that the deployer will buy each time that a token is made
     const chat_id = -1002187221529; //to be improved later
     while(true){//for now just one token at a time but this can be changed later I guess
         //const currentJeetTokens: string[][] = tokenQueue.getItems();
@@ -255,33 +473,62 @@ async function indianTokenEngine(){//main code to run the new token
         console.log(`Current key word for Meta: ${res}`);
         if (res != 'None'){
             var meta_result = generate_name_ticker(res);
-            if (meta_result != null){
+            if (meta_result != null) {
                 console.log(`Preparing to launch the token: ${meta_result.coinName} ${meta_result.ticker}`);
                 coinName = meta_result.coinName;
                 ticker = meta_result.ticker;
                 launch_token = true;
                 //still need desc and img to be ready.
-            }
+            };
         };
         if (launch_token){
-            var description = '';
-            await modify_telegram(chat_id,description,coinName);//possibel error handling?
-            //need to change logo via telethon and real accoutn not bot.
-            //need to prepare the tg with the name  and logo.
-            //deploy the token 
-            //write automated commests both in group and the chat
-            //sense profit and jeet if its above that level.
-            const connection = new Connection(process.env.HELIUS_RPC_URL || "");
-            let temp_deployer:Keypair;
-            let temp_initial:Keypair = Keypair.generate();
-            let temp_token:Keypair; //the new token keypair
-            temp_deployer = Keypair.generate();//new temporary deployer
-            addressDB.addAddress(temp_deployer.publicKey.toString(), bs58.encode(temp_deployer.secretKey).toString());
-            temp_initial = Keypair.generate();//new temporary inttial deposit wallet
-            const binance_res = await withdrawFromBinance(temp_initial.publicKey.toString(),'1.5');//amount will be fixed for now 
-            console.log('Response from Binance: ',binance_res);
+            try{
+                var description = '';
+                await modify_telegram(chat_id,description,coinName);//possibel error handling?
+                //need to change logo via telethon and real accoutn not bot.
+                //need to prepare the tg with the name  and logo.
+                //deploy the token 
+                //write automated commests both in group and the chat
+                //sense profit and jeet if its above that level.
+                const connection = new Connection(process.env.HELIUS_RPC_URL || "");
+                let temp_deployer:Keypair;
+                let temp_initial:Keypair = Keypair.generate();
+                let temp_token:Keypair; //the new token keypair
+                temp_deployer = Keypair.generate();//new temporary deployer
+                addressDB.addAddress(temp_deployer.publicKey.toString(), bs58.encode(temp_deployer.secretKey).toString());
+                temp_initial = Keypair.generate();//new temporary inttial deposit wallet
+                const binance_res = await withdrawFromBinance(temp_initial.publicKey.toString(),'1.5');//amount will be fixed for now 
+                console.log('Response from Binance: ',binance_res);
+                var tries = 0;
+                while ((await connection.getBalance(temp_initial.publicKey))<0.1){
+                try{
+                    if (tries > 20){
+                    //throw error and stop
+                    throw new Error("An error occurred with the deposit to initial wallet! program halted");
+                    }
+                }catch (error){
+                    throw error; // Rethrow the error after logging
+                }
+                tries+=1;
+                await sleep(1);
+                }
+                //IF NO ERRORS THROW WE CAN PROCEED TO THE HOPS PART
+                console.log('Deposit has been confirmed at: ',temp_initial.publicKey.toString());
+                console.log('performaing sol hops from initial wallet to deployer: ',temp_deployer.publicKey.toString());
+                try{
+                    await sol_hops(temp_deployer,temp_initial);
+                }catch(error){
+                    throw error;
+                }
+                temp_token = Keypair.generate();//the address of the new token
+                console.log('Sucesfully generated the token adress: ',temp_token.publicKey.toString());
+                console.log('token pump fun address will be: ',`https://www.pump.fun/${temp_token.publicKey.toString()}`)
+                await deploy_and_buy_token(temp_token_name,temp_token_ticker,temp_token_desc,token_logo_filepath,temp_token_tele,temp_token_twitter,temp_token_website,temp_deployer,temp_token);
 
-            
+            }catch(error){
+                console.log(error);
+            };
+
         };
         
         await delay(20);

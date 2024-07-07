@@ -378,8 +378,8 @@ const provider = new AnchorProvider(connection, wallet, {
 
 let sdk = new PumpFunSDK(provider);
 
-const deploy_and_buy_token = async (token_name:string,token_symbol:string,token_description:string,img_filepath:string,tele:string,x:string,website:string,deployerAccount:Keypair,mint:Keypair,buy_amount:number) => {
-    
+async function  deploy_and_buy_token(token_name:string,token_symbol:string,token_description:string,img_filepath:string,tele:string,x:string,website:string,deployerAccount:Keypair,mint:Keypair,buy_amount:number): Promise<boolean> {
+  //need to return true fr false if the token creation has been confirmed.
   await printSOLBalance(
     connection,
     deployerAccount.publicKey,
@@ -389,14 +389,6 @@ const deploy_and_buy_token = async (token_name:string,token_symbol:string,token_
   let globalAccount = await sdk.getGlobalAccount();
   console.log(globalAccount);
 
-  let currentSolBalance = await connection.getBalance(deployerAccount.publicKey);
-  if (currentSolBalance == 0) {
-    console.log(
-      "Please send some SOL to the test-account:",
-      deployerAccount.publicKey.toBase58()
-    );
-    return;
-  }
   //Check if mint already exists
   let boundingCurveAccount = await sdk.getBondingCurveAccount(mint.publicKey);//this techinically will never be the case as we are creating a token from the start
   if (!boundingCurveAccount) {
@@ -424,14 +416,17 @@ const deploy_and_buy_token = async (token_name:string,token_symbol:string,token_
 
     if (createResults.success) {
       console.log("Token deployed");
+      return true;
     }else{
       console.log(createResults.signature)
+      return false;
     }
   } else {
     console.log("boundingCurveAccount", boundingCurveAccount);
     console.log("Success:", `https://pump.fun/${mint.publicKey.toBase58()}`);
     printSPLBalance(connection, mint.publicKey, deployerAccount.publicKey);
   }
+  return false;
 };
 
 
@@ -523,12 +518,30 @@ async function indianTokenEngine(){//main code to run the new token
                 temp_token = Keypair.generate();//the address of the new token
                 console.log('Sucesfully generated the token adress: ',temp_token.publicKey.toString());
                 console.log('token pump fun address will be: ',`https://www.pump.fun/${temp_token.publicKey.toString()}`)
-                await deploy_and_buy_token(temp_token_name,temp_token_ticker,temp_token_desc,token_logo_filepath,temp_token_tele,temp_token_twitter,temp_token_website,temp_deployer,temp_token);
-
+                var tokenDeployRetryCount = 0;
+                while (true){
+                    var creationResult = await deploy_and_buy_token(temp_token_name,temp_token_ticker,temp_token_desc,token_logo_filepath,temp_token_tele,temp_token_twitter,temp_token_website,temp_deployer,temp_token);
+                    if (creationResult){
+                        break;
+                    }else{
+                        if (tokenDeployRetryCount>2){
+                            sleep(0.1);
+                            //send back the funds
+                            var fee:number = 0.0012*LAMPORTS_PER_SOL; 
+                            const current_sol_balance  =  Math.floor((await connection.getBalance(temp_deployer.publicKey)) - fee);
+                            console.log('curent sol balance after the sell is: ',current_sol_balance);
+                            console.log('Sending back to cex and waiting.....');
+                            await transferSol(connection, temp_deployer, binanceAddress, current_sol_balance);    
+                            throw new Error(`Token was not deployed! Retry count exceeded`);
+                        }else{
+                            console.log(`Token was not deployed! Retry count ${tokenDeployRetryCount}`);
+                        }
+                        tokenDeployRetryCount+=1;
+                    };
+                }
             }catch(error){
                 console.log(error);
             };
-
         };
         
         await delay(20);
@@ -545,5 +558,4 @@ runConcurrently();
 
 //now i want a past tokens list so when releasing a token it wont release the same name again 
 //also helpt o make new name by ignoring pas options for example it can use suepr meta twice but it cant be suerp cat twice you know whay you mean
-
 //for now it will onyl make a token by picking the key phsae from most common substring and it has to occour at least 3 times.

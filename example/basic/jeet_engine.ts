@@ -431,30 +431,58 @@ async function  deploy_and_buy_token(token_name:string,token_symbol:string,token
 
 
 
-async function jeetToken(){
+async function jeetToken(): Promise<boolean> {
     //here we will jeet the token for two reasons:
     //1 time is up 
     //2 profit has been hit.
     //if sell has been confirmed then job is done with that token so 
 }
 
-async function sniffLiquidity(deployer:Keypair,tokenCa:string,buyAmount:number,tp:number){
+async function sniffLiquidityAndCheckExpiration(deployer:Keypair,tokenCa:string,buyAmount:number,tp:number){
     //sbiff for liquidty changes and if we meet target then sell
-    while(true){
+    var jeet_result = false;
+    while(isTokenActive){
         var profit = await determine_profit(buyAmount,tokenCa);//tbh do place it on a timer queue as it will be useful to see when it expied.
         if (profit !== null && profit >= tp){
-            jeetToken();//gotta pass paramas in
+            jeet_result = await jeetToken();//gotta pass paramas in
+            if (jeet_result){
+                isTokenActive = false;
+            }else{
+                console.log('Unable to sell token....retrying...');
+                sleep(0.1);
+            };
         };
+        if (isTokenActive){
+            var time_now = Date.now()/(1000*60);
+            if (time_now>tokenExpirationTime){
+                console.log('Token has been sold as it reached expiration time and did not hit tp');
+                jeet_result = await jeetToken();//gotta pass paramas in
+                if (jeet_result){
+                    isTokenActive = false;
+                }else{
+                    console.log('Unable to sell token....retrying...');
+                    sleep(0.1);
+                };
+            } 
+        }
+        if (isTokenActive==false){
+                sleep(0.2);
+                //send back the funds
+                var fee:number = 0.0012*LAMPORTS_PER_SOL; 
+                const current_sol_balance  =  Math.floor((await connection.getBalance(temp_deployer.publicKey)) - fee);
+                console.log('curent sol balance: ',current_sol_balance);
+                console.log('Sending back to cex and waiting.....');
+                await transferSol(connection, temp_deployer, binanceAddress, current_sol_balance);   
+        }
         await new Promise((resolve) => setTimeout(resolve, 200));
-    }
-
+    };
 }
 
-
-const ActiveJeetToken = new ExpiringTokenQueue(20); // each token will haev amax timeout fo 20 min until its jeeeted
+let isTokenActive = false;//this will be set true if a token is currently released and witing for tp /timeout 
+let tokenExpirationTime = 0;
+let temp_deployer:Keypair;
 //techncically i could use this to handle many tokens at same time
 async function indianTokenEngine(){//main code to run the new token
-    const launch_time = Date.now()/(1000*60); //in minutes
     const check_interval = 30;
     const take_profit_threshold = 0.3; //SOL
     const deployerBuyAmount = 1.4;//amount that the deployer will buy each time that a token is made
@@ -486,7 +514,6 @@ async function indianTokenEngine(){//main code to run the new token
                 //write automated commests both in group and the chat
                 //sense profit and jeet if its above that level.
                 const connection = new Connection(process.env.HELIUS_RPC_URL || "");
-                let temp_deployer:Keypair;
                 let temp_initial:Keypair = Keypair.generate();
                 let temp_token:Keypair; //the new token keypair
                 temp_deployer = Keypair.generate();//new temporary deployer
@@ -540,6 +567,10 @@ async function indianTokenEngine(){//main code to run the new token
                         tokenDeployRetryCount+=1;
                     };
                 }
+                //we want to place the token on the queue as it's confirmed to exist.
+                var launch_time = Date.now()/(1000*60); //in minutes
+                tokenExpirationTime = launch_time + 25; //giving a token 25min max
+                isTokenActive = true;
                 //here means token was deployed.
                 //add it toke queue to inititate the timer on it and run the pnl checker ect asyncronously.
             }catch(error){

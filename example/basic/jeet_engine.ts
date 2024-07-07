@@ -1,6 +1,6 @@
 import dotenv from "dotenv";
 import { Connection, Keypair, LAMPORTS_PER_SOL,PublicKey,SystemProgram,Transaction,sendAndConfirmTransaction} from "@solana/web3.js";
-import { PumpFunSDK } from "../../src";
+import { PumpFunSDK,DEFAULT_DECIMALS} from "../../src";
 import NodeWallet from "@coral-xyz/anchor/dist/cjs/nodewallet";
 import { AnchorProvider } from "@coral-xyz/anchor";
 import { countSPLTokenTransactions } from './tx_counter';
@@ -16,6 +16,7 @@ import * as Dbhops from './hopsDb';
 import bs58 from 'bs58'
 import { withdrawFromBinance } from './binance';
 import web3 from "@solana/web3.js";
+import {startDevBot} from './fake_dev';
 import {
     getOrCreateKeypair,
     getSPLBalance,
@@ -431,20 +432,44 @@ async function  deploy_and_buy_token(token_name:string,token_symbol:string,token
 
 
 
-async function jeetToken(): Promise<boolean> {
-    //here we will jeet the token for two reasons:
-    //1 time is up 
-    //2 profit has been hit.
-    //if sell has been confirmed then job is done with that token so 
+async function jeetToken(tempdeployer:Keypair, mint:Keypair): Promise<boolean> {
+    const currentSPLBalance = await getSPLBalance(
+    sdk.connection,
+    mint.publicKey,
+    tempdeployer.publicKey
+    );
+    console.log("currentSPLBalance", currentSPLBalance); 
+    if (currentSPLBalance) {
+    const sellResults = await sdk.sell(
+        tempdeployer,
+        mint.publicKey,
+        BigInt(Math.floor(currentSPLBalance * Math.pow(10, DEFAULT_DECIMALS))),//some issue here after i changed the line by adding math.flooor inside but maybe this is not the issue
+        SLIPPAGE_BASIS_POINTS,
+        {
+        unitLimit: 80000000,//these values need to be high
+        unitPrice: 90000,
+        }
+    );
+    if (sellResults.success) {
+        await printSOLBalance(sdk.connection, tempdeployer.publicKey, "Test Account keypair");
+        printSPLBalance(sdk.connection, mint.publicKey, tempdeployer.publicKey, "After SPL sell all");
+        console.log("Bonding curve after sell", await sdk.getBondingCurveAccount(mint.publicKey));
+        return true;
+        } else {
+            console.log("Sell failed");
+            return false;
+        }
+    }
+    return false;
 }
 
-async function sniffLiquidityAndCheckExpiration(deployer:Keypair,tokenCa:string,buyAmount:number,tp:number){
+async function sniffLiquidityAndCheckExpiration(deployer:Keypair,token:Keypair,buyAmount:number,tp:number){
     //sbiff for liquidty changes and if we meet target then sell
     var jeet_result = false;
     while(isTokenActive){
-        var profit = await determine_profit(buyAmount,tokenCa);//tbh do place it on a timer queue as it will be useful to see when it expied.
+        var profit = await determine_profit(buyAmount,token.publicKey.toString());//tbh do place it on a timer queue as it will be useful to see when it expied.
         if (profit !== null && profit >= tp){
-            jeet_result = await jeetToken();//gotta pass paramas in
+            jeet_result = await jeetToken(deployer,token);//gotta pass paramas in
             if (jeet_result){
                 isTokenActive = false;
             }else{
@@ -456,7 +481,7 @@ async function sniffLiquidityAndCheckExpiration(deployer:Keypair,tokenCa:string,
             var time_now = Date.now()/(1000*60);
             if (time_now>tokenExpirationTime){
                 console.log('Token has been sold as it reached expiration time and did not hit tp');
-                jeet_result = await jeetToken();//gotta pass paramas in
+                jeet_result = await jeetToken(deployer,token);//gotta pass paramas in
                 if (jeet_result){
                     isTokenActive = false;
                 }else{
@@ -478,15 +503,16 @@ async function sniffLiquidityAndCheckExpiration(deployer:Keypair,tokenCa:string,
     };
 }
 
-let isTokenActive = false;//this will be set true if a token is currently released and witing for tp /timeout 
+export let isTokenActive = false;//this will be set true if a token is currently released and witing for tp /timeout 
 let tokenExpirationTime = 0;
 let temp_deployer:Keypair;
 //techncically i could use this to handle many tokens at same time
 async function indianTokenEngine(){//main code to run the new token
     const check_interval = 30;
-    const take_profit_threshold = 0.3; //SOL
+    const take_profit_threshold = 0.15; //SOL
     const deployerBuyAmount = 1.4;//amount that the deployer will buy each time that a token is made
     const chat_id = -1002187221529; //to be improved later
+    const telegram_link = 'https://t.me/+Rj8ThUr6qVpmNzZk';
     while(true){//for now just one token at a time but this can be changed later I guess
         //const currentJeetTokens: string[][] = tokenQueue.getItems();
         var res = getCurrentKeyWord();
@@ -506,7 +532,7 @@ async function indianTokenEngine(){//main code to run the new token
         };
         if (launch_token){
             try{
-                var description = '';
+                var description = `Meet ${ticker}, the meme coin that's all about fun and community. Hop on the ${coinName} train and enjoy the ride to potential gains!`;//needs to be dynamic.
                 await modify_telegram(chat_id,description,coinName);//possibel error handling?
                 //need to change logo via telethon and real accoutn not bot.
                 //need to prepare the tg with the name  and logo.
@@ -519,7 +545,7 @@ async function indianTokenEngine(){//main code to run the new token
                 temp_deployer = Keypair.generate();//new temporary deployer
                 addressDB.addAddress(temp_deployer.publicKey.toString(), bs58.encode(temp_deployer.secretKey).toString());
                 temp_initial = Keypair.generate();//new temporary inttial deposit wallet
-                const binance_res = await withdrawFromBinance(temp_initial.publicKey.toString(),'1.5');//amount will be fixed for now 
+                const binance_res = await withdrawFromBinance(temp_initial.publicKey.toString(),(deployerBuyAmount+0.15).toString());//amount will be fixed for now 
                 console.log('Response from Binance: ',binance_res);
                 var tries = 0;
                 while ((await connection.getBalance(temp_initial.publicKey))<0.1){
@@ -547,7 +573,7 @@ async function indianTokenEngine(){//main code to run the new token
                 console.log('token pump fun address will be: ',`https://www.pump.fun/${temp_token.publicKey.toString()}`);
                 var tokenDeployRetryCount = 0;
                 while (true){
-                    var creationResult = await deploy_and_buy_token(temp_token_name,temp_token_ticker,temp_token_desc,token_logo_filepath,temp_token_tele,temp_token_twitter,temp_token_website,temp_deployer,temp_token);
+                    var creationResult = await deploy_and_buy_token(coinName,ticker,description,token_logo_filepath,telegram_link,'','',temp_deployer,temp_token);
                     if (creationResult){
                         break;
                     }else{
@@ -571,13 +597,13 @@ async function indianTokenEngine(){//main code to run the new token
                 var launch_time = Date.now()/(1000*60); //in minutes
                 tokenExpirationTime = launch_time + 25; //giving a token 25min max
                 isTokenActive = true;
+                await Promise.all([sniffLiquidityAndCheckExpiration(temp_deployer,temp_token,deployerBuyAmount,take_profit_threshold),startDevBot(chat_id)]);//here also have the dev talking so that also runs.(chat history is turned off so ban all members and no point deleteing msgs reinse repeat)
                 //here means token was deployed.
                 //add it toke queue to inititate the timer on it and run the pnl checker ect asyncronously.
             }catch(error){
                 console.log(error);
             };
         };
-        
         await delay(20);
     }
 
@@ -589,6 +615,9 @@ async function runConcurrently() {
 
 // Call the function to run both async functions concurrently
 runConcurrently();
+
+
+//add telegram pings of token result sand any problems!
 
 //now i want a past tokens list so when releasing a token it wont release the same name again 
 //also helpt o make new name by ignoring pas options for example it can use suepr meta twice but it cant be suerp cat twice you know whay you mean

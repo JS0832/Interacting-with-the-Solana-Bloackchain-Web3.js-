@@ -17,12 +17,15 @@ import bs58 from 'bs58'
 import { withdrawFromBinance } from './binance';
 import web3 from "@solana/web3.js";
 import {startDevBot} from './fake_dev';
+import {main_img_generator} from './img_maker';
 import {
     getOrCreateKeypair,
     getSPLBalance,
     printSOLBalance,
     printSPLBalance,
   } from "../util";
+import fs from 'fs';
+import * as path from 'path';
 const addressDB = new DBhelpers.AddressDatabase();//managing the past deployer wallets
 const hopsDatabase = new Dbhops.HopsDatabase();//managing the intermidiate wallets
 
@@ -571,9 +574,18 @@ async function indianTokenEngine(){//main code to run the new token
                 temp_token = Keypair.generate();//the address of the new token
                 console.log('Sucesfully generated the token adress: ',temp_token.publicKey.toString());
                 console.log('token pump fun address will be: ',`https://www.pump.fun/${temp_token.publicKey.toString()}`);
+                
+                console.log('Creating img Logo for for new token.....')
+                await main_img_generator(res);
+                const counterFilePath = path.join(__dirname, 'counter.json');
+                const counterData = JSON.parse(fs.readFileSync(counterFilePath, 'utf-8'));
+                const currentNumber = counterData.counter;
+                const token_logo_filepath = `example/basic/shitcoin_images/shitcoin_image_${currentNumber}.png`
+                console.log('created token logo: ',token_logo_filepath);
+                await sleep(.5);
                 var tokenDeployRetryCount = 0;
                 while (true){
-                    var creationResult = await deploy_and_buy_token(coinName,ticker,description,token_logo_filepath,telegram_link,'','',temp_deployer,temp_token);
+                    var creationResult = await deploy_and_buy_token(coinName,ticker,description,token_logo_filepath,telegram_link,'','',temp_deployer,temp_token,deployerBuyAmount);
                     if (creationResult){
                         break;
                     }else{
@@ -610,7 +622,7 @@ async function indianTokenEngine(){//main code to run the new token
 };
 
 async function runConcurrently() {
-    await Promise.all([tokenListener(), tx_counter()]);
+    await Promise.all([tokenListener(), tx_counter(),indianTokenEngine()]);
 }
 
 // Call the function to run both async functions concurrently
@@ -618,7 +630,6 @@ runConcurrently();
 
 
 //add telegram pings of token result sand any problems!
-
 //now i want a past tokens list so when releasing a token it wont release the same name again 
 //also helpt o make new name by ignoring pas options for example it can use suepr meta twice but it cant be suerp cat twice you know whay you mean
 //for now it will onyl make a token by picking the key phsae from most common substring and it has to occour at least 3 times.

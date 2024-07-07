@@ -43,13 +43,15 @@ async function printCoinData(mintStr: string): Promise<void> {
     }
 }
 
-export async function determine_profit(buyAmount:number,token_mint:string){
+export async function determine_profit(buyAmount:number,token_mint:string): Promise<number>{
     var effectiveInitialMc = mc_nomrlaisation_constant+buyAmount;
     const data = await getCoinData(token_mint);
+    if (data == null){
+        return 0;
+    };
     var current_mc = parseFloat(data['market_cap']);
     var percentageChange = current_mc/effectiveInitialMc;
     var profit = (buyAmount*percentageChange)-buyAmount;
-    console.log(profit);
     return profit;
 }
 

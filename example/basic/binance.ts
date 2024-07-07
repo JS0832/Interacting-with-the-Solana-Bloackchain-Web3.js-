@@ -21,7 +21,7 @@ const withdrawParams: WithdrawParams & {
   amount: '',
 };
 
-export async function withdrawToBinance(address: string, amount: string): Promise<any> {
+export async function withdrawFromBinance(address: string, amount: string): Promise<any> {
   try {
     withdrawParams.address = address;
     withdrawParams.amount = amount;

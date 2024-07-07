@@ -27,7 +27,7 @@ import { error } from "console";
 const cex_deposit_address = new web3.PublicKey("FUFu9PZ7ZGEHAeCFafVJSf857kQkaaPboa5mh7zJcn3c");//solana address TODO
 import {getNextWallet} from'./initial_wallet_manager';
 import { promises } from "dns";
-import { withdrawToBinance } from './binance';
+import { withdrawFromBinance } from './binance';
 const hopsDatabase = new Dbhops.HopsDatabase();//managing the intermidiate wallets
 const addressDB = new DBhelpers.AddressDatabase();//managing the past deployer wallets
 dotenv.config();

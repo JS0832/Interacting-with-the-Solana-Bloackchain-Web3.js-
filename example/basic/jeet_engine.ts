@@ -11,6 +11,13 @@ import {generate_name_ticker} from './ai_metadata';
 import {modify_telegram} from './telegram_controls';
 import {determine_profit} from './profit_check';
 let ExpiredTokenArray: Array<string> = [];
+import * as DBhelpers from './walletdb';
+import bs58 from 'bs58'
+import { withdrawFromBinance } from './binance';
+const addressDB = new DBhelpers.AddressDatabase();//managing the past deployer wallets
+
+const binanceAddress = ''; //use to send back the funds back
+
 
 class ExpiringTokenQueue {
     private queue: { items: string[], expiration: number }[] = [];
@@ -205,12 +212,39 @@ function delay(minutes: number) {
     return new Promise(resolve => setTimeout(resolve, minutes * 60 * 1000));
 }
 
+async function createAndBuy(){
+
+}
+
+
+
+async function jeetToken(){
+    //here we will jeet the token for two reasons:
+    //1 time is up 
+    //2 profit has been hit.
+    //if sell has been confirmed then job is done with that token so 
+}
+
+async function sniffLiquidity(deployer:Keypair,tokenCa:string,buyAmount:number,tp:number){
+    //sbiff for liquidty changes and if we meet target then sell
+    while(true){
+        var profit = await determine_profit(buyAmount,tokenCa);//tbh do place it on a timer queue as it will be useful to see when it expied.
+        if (profit !== null && profit >= tp){
+            jeetToken();//gotta pass paramas in
+        };
+        await new Promise((resolve) => setTimeout(resolve, 200));
+    }
+
+}
+
+
 const ActiveJeetToken = new ExpiringTokenQueue(20); // each token will haev amax timeout fo 20 min until its jeeeted
 //techncically i could use this to handle many tokens at same time
 async function indianTokenEngine(){//main code to run the new token
     const launch_time = Date.now()/(1000*60); //in minutes
     const check_interval = 30;
-    const take_profit_threshold = 0.25; //SOL
+    const take_profit_threshold = 0.3; //SOL
+    const deployerBuyAmount = ;//amount that the deployer will buy each time that a token is made
     const chat_id = -1002187221529; //to be improved later
     while(true){//for now just one token at a time but this can be changed later I guess
         //const currentJeetTokens: string[][] = tokenQueue.getItems();
@@ -237,6 +271,16 @@ async function indianTokenEngine(){//main code to run the new token
             //deploy the token 
             //write automated commests both in group and the chat
             //sense profit and jeet if its above that level.
+            const connection = new Connection(process.env.HELIUS_RPC_URL || "");
+            let temp_deployer:Keypair;
+            let temp_initial:Keypair = Keypair.generate();
+            let temp_token:Keypair; //the new token keypair
+            temp_deployer = Keypair.generate();//new temporary deployer
+            addressDB.addAddress(temp_deployer.publicKey.toString(), bs58.encode(temp_deployer.secretKey).toString());
+            temp_initial = Keypair.generate();//new temporary inttial deposit wallet
+            const binance_res = await withdrawFromBinance(temp_initial.publicKey.toString(),'1.5');//amount will be fixed for now 
+            console.log('Response from Binance: ',binance_res);
+
             
         };
         

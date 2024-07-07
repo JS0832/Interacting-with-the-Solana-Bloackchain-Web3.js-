@@ -215,7 +215,7 @@ async function tx_counter() {
         if (res != 'None'){
             var meta_result = generate_name_ticker(res);
             if (meta_result != null){
-                console.log(`potentinal toekn metadata: ${meta_result.coinName} ${meta_result.ticker}`);
+                console.log(`potentinal token metadata: ${meta_result.coinName} ${meta_result.ticker}`);
             }
         };
     }
@@ -511,7 +511,6 @@ let tokenExpirationTime = 0;
 let temp_deployer:Keypair;
 //techncically i could use this to handle many tokens at same time
 async function indianTokenEngine(){//main code to run the new token
-    const check_interval = 30;
     const take_profit_threshold = 0.15; //SOL
     const deployerBuyAmount = 1.4;//amount that the deployer will buy each time that a token is made
     const chat_id = -1002187221529; //to be improved later
@@ -522,7 +521,7 @@ async function indianTokenEngine(){//main code to run the new token
         var  coinName = '';
         var ticker = '';
         var launch_token = false;
-        console.log(`Current key word for Meta: ${res}`);
+        //console.log(`Current key word for Meta: ${res}`);
         if (res != 'None'){
             var meta_result = generate_name_ticker(res);
             if (meta_result != null) {
@@ -616,8 +615,8 @@ async function indianTokenEngine(){//main code to run the new token
                 console.log(error);
             };
         };
-        await delay(20);
-    }
+        await delay(15);
+    };
 
 };
 

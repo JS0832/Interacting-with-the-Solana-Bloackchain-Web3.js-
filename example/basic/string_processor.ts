@@ -1,4 +1,4 @@
-export function allSubstrings(s: string, minLength: number): string[] {
+export function allSubstrings(s: string, minLength: number): string[] {//need to not include any dumpicate substrings!
     // Convert to lowercase and remove spaces
     s = s.toLowerCase().replace(/\s+/g, '');
 

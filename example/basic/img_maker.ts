@@ -69,5 +69,3 @@ async function downloadImage(url: string, filePath: string): Promise<void> {
         throw error;
     }
 }
-
-main_img_generator('fast dog');

@@ -15,6 +15,6 @@ export function printBarChart(data: [string,number,string,number,string,string][
     percentages.forEach(([name, percentage,score,tpm]) => {
         const barLength = Math.round(percentage); // Adjust scale if necessary
         const bar = '█'.repeat(barLength);
-        console.log(`${name.padEnd(maxNameLength)} | ${bar} ${percentage.toFixed(2)}% SN: ${tpm} Raw tx Amount: ${score}`);
+        console.log(`${name.padEnd(maxNameLength)} | ${bar} ${percentage.toFixed(2)}% SN: ${tpm} T VAL: ${score}`);
     });
 }

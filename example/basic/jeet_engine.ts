@@ -80,7 +80,7 @@ class ExpiringTokenQueue {
 
 // Need to add transaction per minute too
 
-const tokenQueue = new ExpiringTokenQueue(5); // 8 minutes expiration time
+const tokenQueue = new ExpiringTokenQueue(3); // 8 minutes expiration time
 const tokensWithDemandQueue = new ExpiringTokenQueue(90); //This is the queue that keeps tokens that shown demand within their first 5 minutes of trading.
 const nameSubstrings = new ExpiringTokenQueue(90);
 let PastTokenArray: Array<string> = [];
@@ -153,7 +153,7 @@ function remove_expired_from_tx_count_queue() {//here we want to add all tokens 
         var current_token_amount = tx_count_queue.length-1;//adjusted for 0 index based array 
         var ca_to_be_removed = ExpiredTokenArray[i];
         var position = findElement(tx_count_queue, ca_to_be_removed);
-        var minSNcount = 500;//ro be tweaked (migth make this more dynami)
+        var minSNcount = 400;//ro be tweaked (migth make this more dynami)
         if (position !== null) {
             var topfour = current_token_amount-4;
             if (position >=(topfour) && topfour > 0 &&tx_count_queue[position][3]>=minSNcount){ //within top 4 ( migth also filter by minimum SN number too tweak later)
